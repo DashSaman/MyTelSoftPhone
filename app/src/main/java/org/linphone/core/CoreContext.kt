@@ -795,10 +795,8 @@ class CoreContext
                 }
             }
 
-            if (core.logCollectionUploadServerUrl.isNullOrEmpty()) {
-                Log.w("$TAG Logs sharing server URL not set, fixing that")
-                core.logCollectionUploadServerUrl = "https://files.linphone.org/http-file-transfer-server/hft.php"
-            }
+            // MyTel: never upload user logs to any third-party server.
+            // Logs are shared locally as text from the debug screen instead.
 
             corePreferences.linphoneConfigurationVersion = currentVersion
             Log.w(
@@ -1268,12 +1266,12 @@ class CoreContext
         }
         Log.i("$TAG Device name for user-agent is [$deviceName]")
 
-        val appName = context.getString(org.linphone.R.string.app_name)
         val androidVersion = BuildConfig.VERSION_NAME
-        val userAgent = "${appName}Android/$androidVersion ($deviceName) LinphoneSDK"
+        // MyTel product requirement: SIP User-Agent must be exactly "My-Tell-Siphone"
+        val userAgent = "My-Tell-Siphone"
         val sdkVersion = context.getString(R.string.linphone_sdk_version)
         val sdkBranch = context.getString(R.string.linphone_sdk_branch)
-        val sdkUserAgent = "$sdkVersion ($sdkBranch)"
+        val sdkUserAgent = "$sdkVersion ($sdkBranch) $androidVersion"
         core.setUserAgent(userAgent, sdkUserAgent)
     }
 

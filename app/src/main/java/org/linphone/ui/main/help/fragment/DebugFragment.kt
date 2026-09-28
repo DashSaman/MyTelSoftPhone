@@ -87,25 +87,17 @@ class DebugFragment : GenericMainFragment() {
             }
         }
 
-        viewModel.uploadDebugLogsFinishedEvent.observe(viewLifecycleOwner) {
-            it.consume { url ->
+        viewModel.shareLogsAsTextEvent.observe(viewLifecycleOwner) {
+            it.consume { logs ->
                 if (requireActivity() is AssistantActivity) {
-                    AppUtils.copyToClipboard(requireContext(), "Logs upload URL", url)
+                    AppUtils.copyToClipboard(requireContext(), "Logs", logs)
                     return@consume
                 }
 
                 val appName = requireContext().getString(R.string.app_name)
                 val intent = Intent(Intent.ACTION_SEND)
-                intent.putExtra(
-                    Intent.EXTRA_EMAIL,
-                    arrayOf(
-                        requireContext().getString(
-                            R.string.help_advanced_send_debug_logs_email_address
-                        )
-                    )
-                )
                 intent.putExtra(Intent.EXTRA_SUBJECT, "$appName Logs")
-                intent.putExtra(Intent.EXTRA_TEXT, url)
+                intent.putExtra(Intent.EXTRA_TEXT, logs)
                 intent.type = "text/plain"
 
                 try {

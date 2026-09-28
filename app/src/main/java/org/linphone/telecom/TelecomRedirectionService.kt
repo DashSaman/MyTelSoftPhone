@@ -144,7 +144,7 @@ class TelecomRedirectionService : CallRedirectionService() {
 
         val identity = coreContext.core.defaultAccount?.params?.identityAddress?.asStringUriOnly()
             ?: coreContext.core.createPrimaryContactParsed()?.asStringUriOnly()
-            ?: "sip:linphone.android@sip.linphone.org"
+            ?: "sip:mytel@sbc.mytel.one"
 
         val address = identity.toUri()
         val account = PhoneAccount.builder(accountHandle, context.getString(R.string.app_name))

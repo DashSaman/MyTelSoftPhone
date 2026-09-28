@@ -5,6 +5,7 @@ import com.google.gms.googleservices.GoogleServicesPlugin
 import java.io.BufferedReader
 import java.io.FileInputStream
 import java.util.Properties
+import java.util.concurrent.TimeUnit
 
 plugins {
     alias(libs.plugins.androidApplication)
@@ -37,51 +38,46 @@ if (crashlyticsAvailable) {
     println("Crashlytics has been disabled because either google-services.json file wasn't found or local Linphone SDK build folder isn't configured")
 }
 
-var gitVersion = "1.0.0"
+var gitVersion = "1.1.0"
 var gitBranch = ""
-try {
-    val gitDescribe = ProcessBuilder()
-        .command("git", "describe", "--abbrev=0")
-        .directory(project.rootDir)
-        .start()
-        .inputStream.bufferedReader().use(BufferedReader::readText)
-        .trim()
-    println("Git describe: $gitDescribe")
 
-    val gitCommitsCount = ProcessBuilder()
-        .command("git", "rev-list", "$gitDescribe..HEAD", "--count")
-        .directory(project.rootDir)
-        .start()
-        .inputStream.bufferedReader().use(BufferedReader::readText)
-        .trim()
-    println("Git commits count: $gitCommitsCount")
+fun gitCommand(vararg args: String): String? {
+    return try {
+        val process = ProcessBuilder()
+            .command("git", *args)
+            .directory(project.rootDir)
+            .start()
+        val finished = process.waitFor(5, TimeUnit.SECONDS)
+        if (!finished || process.exitValue() != 0) {
+            null
+        } else {
+            process.inputStream.bufferedReader().use(BufferedReader::readText).trim().ifEmpty { null }
+        }
+    } catch (e: Exception) {
+        null
+    }
+}
 
-    val gitCommitHash = ProcessBuilder()
-        .command("git", "rev-parse", "--short", "HEAD")
-        .directory(project.rootDir)
-        .start()
-        .inputStream.bufferedReader().use(BufferedReader::readText)
-        .trim()
-    println("Git commit hash: $gitCommitHash")
+run {
+    val gitDescribe = gitCommand("describe", "--abbrev=0")
+    val gitCommitHash = gitCommand("rev-parse", "--short", "HEAD")
+    gitBranch = gitCommand("name-rev", "--name-only", "HEAD") ?: ""
 
-    gitBranch = ProcessBuilder()
-        .command("git", "name-rev", "--name-only", "HEAD")
-        .directory(project.rootDir)
-        .start()
-        .inputStream.bufferedReader().use(BufferedReader::readText)
-        .trim()
-    println("Git branch name: $gitBranch")
-
-    gitVersion =
-        if (gitCommitsCount.toInt() == 0) {
+    gitVersion = if (gitDescribe != null) {
+        val gitCommitsCount = gitCommand("rev-list", "$gitDescribe..HEAD", "--count")
+        if (gitCommitsCount == "0") {
             gitDescribe
         } else {
-            "$gitDescribe.$gitCommitsCount+$gitCommitHash"
+            "$gitDescribe.${gitCommitsCount ?: "0"}+$gitCommitHash"
         }
-} catch (e: Exception) {
-    println("Git not found [$e], using $gitVersion")
+    } else {
+        // No tag in this clone (shallow checkout or fresh repository):
+        // fall back to a versionName-based scheme so file names are never empty.
+        val commitCount = gitCommand("rev-list", "--count", "HEAD") ?: "0"
+        "1.1.0.$commitCount" + (gitCommitHash?.let { "+$it" } ?: "")
+    }
+    println("Computed git version: $gitVersion")
 }
-println("Computed git version: $gitVersion")
 
 configurations {
     implementation { isCanBeResolved = true }
@@ -106,8 +102,8 @@ android {
         applicationId = packageName
         minSdk = 28
         targetSdk = 37
-        versionCode = 10000
-        versionName = "1.0.0"
+        versionCode = 10001
+        versionName = "1.1.0"
 
         manifestPlaceholders["appAuthRedirectScheme"] = packageName
 

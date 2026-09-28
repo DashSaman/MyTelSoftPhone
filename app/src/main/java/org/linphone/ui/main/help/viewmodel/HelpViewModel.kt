@@ -46,6 +46,16 @@ class HelpViewModel
         private const val TAG = "[Help ViewModel]"
 
         private const val NUMBER_OF_CLICK_TO_ENABLE_DEVELOPER_MODE = 6
+
+        // Cap shared log text so every share target (chat, mail, ...) accepts it
+        private const val MAX_SHARED_LOG_SIZE = 300000
+
+        private val sensitiveLogPatterns = listOf(
+            // Authorization / Proxy-Authorization headers, passwords, tokens, api keys
+            Regex("(?i)(authorization|proxy-authorization|password|passwd|secret|api[-_]?key|token)[=:]\\s*[^\\s,;)\"']+"),
+            // SIP URIs carrying a password as userinfo: sip:user:password@domain
+            Regex("(?i)sip:([^:@\\s]+):([^@\\s]+)@")
+        )
     }
 
     val version = MutableLiveData<String>()
@@ -85,6 +95,10 @@ class HelpViewModel
     }
 
     val uploadDebugLogsFinishedEvent: MutableLiveData<Event<String>> by lazy {
+        MutableLiveData()
+    }
+
+    val shareLogsAsTextEvent: MutableLiveData<Event<String>> by lazy {
         MutableLiveData()
     }
 
@@ -173,7 +187,8 @@ class HelpViewModel
             printLogsInLogcat.postValue(corePreferences.printLogsInLogcat)
             developerSettingsEnabled.postValue(corePreferences.showDeveloperSettings)
             checkUpdateAvailable.postValue(corePreferences.checkForUpdateServerUrl.isNotEmpty())
-            uploadLogsAvailable.postValue(!core.logCollectionUploadServerUrl.isNullOrEmpty())
+            // Always allow sharing logs locally as text, no upload server required
+            uploadLogsAvailable.postValue(true)
         }
     }
 
@@ -224,9 +239,66 @@ class HelpViewModel
     @UiThread
     fun shareLogs() {
         coreContext.postOnCoreThread { core ->
-            Log.i("$TAG Uploading debug logs for sharing")
-            logsUploadInProgress.postValue(true)
-            core.uploadLogCollection()
+            Log.i("$TAG Collecting debug logs to share them as text")
+            val context = coreContext.context
+            val builder = StringBuilder()
+
+            builder.appendLine("MyTelSoftPhone debug report")
+            builder.appendLine("=========================")
+            builder.appendLine(
+                "Time: " + java.text.SimpleDateFormat(
+                    "yyyy-MM-dd HH:mm:ss",
+                    java.util.Locale.US
+                ).format(java.util.Date())
+            )
+            builder.appendLine("App version: ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
+            builder.appendLine("Core version: ${core.version}")
+            builder.appendLine("Device: ${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}")
+            builder.appendLine(
+                "Android: ${android.os.Build.VERSION.RELEASE} (API ${android.os.Build.VERSION.SDK_INT})"
+            )
+            val account = core.defaultAccount
+            builder.appendLine(
+                "Account: ${account?.params?.identityAddress?.username.orEmpty()} @ ${account?.params?.domain.orEmpty()}"
+            )
+            builder.appendLine("Registration state: ${account?.state}")
+            builder.appendLine("=========================")
+
+            val logFiles = context.filesDir.listFiles { file ->
+                (file.name.startsWith("linphone") && file.name.contains(".log")) ||
+                    file.name.endsWith(".log.1")
+            }?.sortedBy { it.lastModified() } ?: emptyList()
+            for (file in logFiles) {
+                builder.appendLine("--- ${file.name} ---")
+                builder.appendLine(redactSensitiveInformation(file))
+            }
+
+            var text = builder.toString()
+            if (text.length > MAX_SHARED_LOG_SIZE) {
+                text = "[... log truncated, oldest lines removed ...]" +
+                    text.takeLast(MAX_SHARED_LOG_SIZE)
+            }
+            shareLogsAsTextEvent.postValue(Event(text))
+        }
+    }
+
+    private fun redactSensitiveInformation(file: java.io.File): String {
+        return try {
+            file.readText().lines().joinToString("\n") { line ->
+                var sanitized = line
+                for (pattern in sensitiveLogPatterns) {
+                    sanitized = pattern.replace(sanitized) { matchResult ->
+                        if (matchResult.groupValues.size > 2) {
+                            "sip:${matchResult.groupValues[1]}:***@"
+                        } else {
+                            "${matchResult.groupValues[1]}=REDACTED"
+                        }
+                    }
+                }
+                sanitized
+            }
+        } catch (e: Exception) {
+            "Could not read log file [${file.name}]: $e"
         }
     }
 
