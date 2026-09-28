@@ -15,6 +15,9 @@
 
         <item name="color_main1_100">@color/orange_main_100</item>
         <item name="color_main1_500">@color/orange_main_500</item>
+        <item name="shapeAppearanceSmallComponent">@style/ShapeAppearance.MyTel.Small</item>
+        <item name="shapeAppearanceMediumComponent">@style/ShapeAppearance.MyTel.Medium</item>
+        <item name="shapeAppearanceLargeComponent">@style/ShapeAppearance.MyTel.Large</item>
 
         <item name="color_main2_000">@color/background_color_dark_mode</item>
         <item name="color_main2_100">@color/gray_main2_800</item>

@@ -96,6 +96,10 @@ class HelpFragment : GenericMainFragment() {
             openUrlInBrowser(url)
         }
 
+        // MyTel: translation row points to Linphone's Weblate, not relevant for our users
+        binding.translateIcon.visibility = View.GONE
+        binding.translateTitle.visibility = View.GONE
+
         viewModel.newVersionAvailableEvent.observe(viewLifecycleOwner) {
             it.consume { pair ->
                 val version = pair.first

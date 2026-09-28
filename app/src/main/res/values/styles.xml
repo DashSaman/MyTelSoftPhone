@@ -259,4 +259,15 @@
         <item name="android:layout_width">0dp</item>
         <item name="android:layout_height">@dimen/call_dtmf_button_size</item>
     </style>
+
+    <!-- MyTel: rounder Material3 shapes for a softer, modern look -->
+    <style name="ShapeAppearance.MyTel.Small" parent="ShapeAppearance.Material3.SmallComponent">
+        <item name="cornerSize">12dp</item>
+    </style>
+    <style name="ShapeAppearance.MyTel.Medium" parent="ShapeAppearance.Material3.MediumComponent">
+        <item name="cornerSize">18dp</item>
+    </style>
+    <style name="ShapeAppearance.MyTel.Large" parent="ShapeAppearance.Material3.LargeComponent">
+        <item name="cornerSize">26dp</item>
+    </style>
 </resources>

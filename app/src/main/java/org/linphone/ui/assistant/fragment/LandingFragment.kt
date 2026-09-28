@@ -75,11 +75,9 @@ class LandingFragment : GenericFragment() {
         observeToastEvents(viewModel)
 
         // MyTel: hide flows tied to linphone.org public accounts.
-        // Our users log in with their company extension or a generic SIP account.
+        // Register & QR rows are hidden via the hideAssistant* preferences,
+        // password recovery is linphone.org-only so hide the link here.
         binding.forgottenPassword.visibility = View.GONE
-        binding.scanQrCode.visibility = View.GONE
-        binding.noAccountYet.visibility = View.GONE
-        binding.register.visibility = View.GONE
 
         binding.setBackClickListener {
             requireActivity().finish()

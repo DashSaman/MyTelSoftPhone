@@ -436,11 +436,11 @@ class CorePreferences
 
     @get:AnyThread
     val hideAssistantCreateAccount: Boolean
-        get() = config.getBool("ui", "assistant_hide_create_account", false)
+        get() = config.getBool("ui", "assistant_hide_create_account", true)
 
     @get:AnyThread
     val hideAssistantScanQrCode: Boolean
-        get() = config.getBool("ui", "assistant_disable_qr_code", false)
+        get() = config.getBool("ui", "assistant_disable_qr_code", true)
 
     @get:AnyThread
     val hideAssistantThirdPartySipAccount: Boolean
