@@ -38,7 +38,7 @@ if (crashlyticsAvailable) {
     println("Crashlytics has been disabled because either google-services.json file wasn't found or local Linphone SDK build folder isn't configured")
 }
 
-var gitVersion = "1.2.0"
+var gitVersion = "1.3.0"
 var gitBranch = ""
 
 fun gitCommand(vararg args: String): String? {
@@ -74,7 +74,7 @@ run {
         // No tag in this clone (shallow checkout or fresh repository):
         // fall back to a versionName-based scheme so file names are never empty.
         val commitCount = gitCommand("rev-list", "--count", "HEAD") ?: "0"
-        "1.2.0.$commitCount" + (gitCommitHash?.let { "+$it" } ?: "")
+        "1.3.0.$commitCount" + (gitCommitHash?.let { "+$it" } ?: "")
     }
     println("Computed git version: $gitVersion")
 }
@@ -102,8 +102,8 @@ android {
         applicationId = packageName
         minSdk = 28
         targetSdk = 37
-        versionCode = 10002
-        versionName = "1.2.0"
+        versionCode = 10003
+        versionName = "1.3.0"
 
         manifestPlaceholders["appAuthRedirectScheme"] = packageName
 

@@ -33,6 +33,7 @@ import org.linphone.core.CoreListenerStub
 import org.linphone.core.Factory
 import org.linphone.core.Reason
 import org.linphone.core.RegistrationState
+import org.linphone.core.TransportType
 import org.linphone.core.tools.Log
 import org.linphone.ui.GenericViewModel
 import org.linphone.utils.AppUtils
@@ -57,6 +58,12 @@ open class AccountLoginViewModel
 
     val password = MutableLiveData<String>()
 
+    val serverAddress = MutableLiveData<String>()
+
+    val serverPort = MutableLiveData<String>()
+
+    val useUdpTransport = MutableLiveData<Boolean>()
+
     val internationalPrefix = MutableLiveData<String>()
 
     val internationalPrefixIsoCountryCode = MutableLiveData<String>()
@@ -80,6 +87,14 @@ open class AccountLoginViewModel
     }
 
     var conditionsAndPrivacyPolicyAccepted = false
+
+    init {
+        // MyTel: pre-fill the connection details so the standard user only
+        // types extension + password, while still being able to override them.
+        serverAddress.value = corePreferences.defaultDomain
+        serverPort.value = "57306"
+        useUdpTransport.value = false
+    }
 
     private lateinit var newlyCreatedAuthInfo: AuthInfo
     private lateinit var newlyCreatedAccount: Account
@@ -158,18 +173,19 @@ open class AccountLoginViewModel
             core.loadConfigFromXml(corePreferences.linphoneDefaultValuesPath)
 
             val userInput = sipIdentity.value.orEmpty().trim()
-            val defaultDomain = corePreferences.defaultDomain
+            val serverValue = serverAddress.value.orEmpty().trim()
+                .ifEmpty { corePreferences.defaultDomain }
             val identity = if (userInput.startsWith("sip:")) {
                 if (userInput.contains("@")) {
                     userInput
                 } else {
-                    "$userInput@$defaultDomain"
+                    "$userInput@$serverValue"
                 }
             } else {
                 if (userInput.contains("@")) {
                     "sip:$userInput"
                 } else {
-                    "sip:$userInput@$defaultDomain"
+                    "sip:$userInput@$serverValue"
                 }
             }
             Log.i("$TAG Computed identity is [$identity] from user input [$userInput]")
@@ -214,6 +230,23 @@ open class AccountLoginViewModel
 
             val accountParams = core.createAccountParams()
             accountParams.identityAddress = identityAddress
+
+            // MyTel: explicit server address + port + transport, so custom
+            // SBC ports such as 57306 are actually used for registration.
+            val portValue = serverPort.value.orEmpty().trim()
+            val transport = if (useUdpTransport.value == true) TransportType.Udp else TransportType.Tls
+            val serverUri = StringBuilder("sip:").append(serverValue.removePrefix("sip:"))
+            if (portValue.isNotEmpty()) {
+                serverUri.append(":").append(portValue)
+            }
+            val serverAddr = Factory.instance().createAddress(serverUri.toString())
+            if (serverAddr != null) {
+                serverAddr.transport = transport
+                accountParams.serverAddress = serverAddr
+                Log.i("$TAG Server address set to [${serverAddr.asStringUriOnly()}]")
+            } else {
+                Log.e("$TAG Failed to parse server address [$serverUri], falling back to domain defaults")
+            }
 
             val prefix = internationalPrefix.value.orEmpty().trim()
             val isoCountryCode = internationalPrefixIsoCountryCode.value.orEmpty()
