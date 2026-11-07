@@ -720,6 +720,68 @@ class CoreContext
         computeUserAgent()
         Log.i("$TAG Core has been configured with user-agent [${core.userAgent}], starting it")
         core.start()
+
+        migrateLinphoneOrgChatDefaults()
+    }
+
+    @WorkerThread
+    private fun migrateLinphoneOrgChatDefaults() {
+        // MyTel scoped migration (v2.1.0): accounts created through the login
+        // form in earlier versions inherited linphone.org's conference-factory
+        // / LIME settings. Those make the app create Flexisip E2E rooms that
+        // never finish on a plain PBX (chat stuck on "operation in progress").
+        // Clear them ONLY when they still hold the injected linphone.org
+        // values, so intentional custom server settings are preserved.
+        val staleFactory = "sip:conference-factory@sip.linphone.org"
+        val staleAvvf = "sip:videoconference-factory@sip.linphone.org"
+        val staleLime = "https://lime.linphone.org/lime-server/lime-server.php"
+        var migrated = 0
+        for (account in core.accountList) {
+            // Account.getParams() is documented as read-only: clone, edit the
+            // clone, then apply it through the setter (same pattern as
+            // AccountSettingsViewModel).
+            val params = account.params.clone()
+            var changed = false
+            val cfu = params.conferenceFactoryUri
+            if (cfu != null && cfu.substringAfter('<').substringBefore('>') == staleFactory) {
+                params.conferenceFactoryUri = null
+                changed = true
+            }
+            if (params.audioVideoConferenceFactoryAddress?.asStringUriOnly() == staleAvvf) {
+                params.audioVideoConferenceFactoryAddress = null
+                changed = true
+            }
+            if (params.limeServerUrl == staleLime) {
+                params.limeServerUrl = ""
+                changed = true
+            }
+            if (params.isCpimInBasicChatRoomEnabled) {
+                // Same migration scope: plain text/plain messages so any SIP
+                // peer can read them (old default wrapped them in CPIM)
+                params.isCpimInBasicChatRoomEnabled = false
+                changed = true
+            }
+            if (changed) {
+                account.params = params
+                migrated++
+                Log.i(
+                    "$TAG Migrated account [${params.identityAddress?.asStringUriOnly()}]: " +
+                        "removed injected linphone.org chat-conference defaults"
+                )
+            }
+        }
+        // Core-level RLS cleanup for the same scope: old assistant defaults
+        // also stored linphone.org's RLS in the [sip] section. Exact full-URI
+        // comparison so custom RLS addresses (even similar-looking ones)
+        // survive the migration untouched.
+        val staleRls = core.config.getString("sip", "rls_uri", "").orEmpty()
+        if (staleRls == "sips:rls@sip.linphone.org" || staleRls == "sip:rls@sip.linphone.org") {
+            core.config.setString("sip", "rls_uri", "")
+            Log.i("$TAG Removed injected linphone.org RLS URI from [sip] config")
+        }
+        if (migrated > 0) {
+            Log.i("$TAG Chat-defaults migration applied to $migrated account(s)")
+        }
     }
 
     @WorkerThread
@@ -1266,13 +1328,12 @@ class CoreContext
         }
         Log.i("$TAG Device name for user-agent is [$deviceName]")
 
-        val androidVersion = BuildConfig.VERSION_NAME
-        // MyTel product requirement: SIP User-Agent must be exactly "My-Tell-Siphone"
-        val userAgent = "My-Tell-Siphone"
-        val sdkVersion = context.getString(R.string.linphone_sdk_version)
-        val sdkBranch = context.getString(R.string.linphone_sdk_branch)
-        val sdkUserAgent = "$sdkVersion ($sdkBranch) $androidVersion"
-        core.setUserAgent(userAgent, sdkUserAgent)
+        // MyTel product requirement: SIP User-Agent must be exactly "Mytell"
+        // (firewall access rules whitelist this exact token). A null version
+        // argument keeps the header exact — liblinphone appends "/ver" only
+        // when a version string is provided.
+        val userAgent = "Mytell"
+        core.setUserAgent(userAgent, null)
     }
 
     @WorkerThread

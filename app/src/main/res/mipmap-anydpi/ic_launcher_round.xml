@@ -2,5 +2,5 @@
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
     <background android:drawable="@drawable/mytel_launcher_background" />
     <foreground android:drawable="@mipmap/linphone_launcher_icon_foreground" />
-    <monochrome android:drawable="@mipmap/linphone_launcher_icon_foreground"/>
+    <monochrome android:drawable="@drawable/mytel_launcher_monochrome"/>
 </adaptive-icon>

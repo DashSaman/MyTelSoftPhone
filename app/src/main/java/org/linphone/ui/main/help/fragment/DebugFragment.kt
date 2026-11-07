@@ -20,8 +20,12 @@
 package org.linphone.ui.main.help.fragment
 
 import android.content.ActivityNotFoundException
+import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
+import android.os.PowerManager
+import android.provider.Settings
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -39,6 +43,10 @@ import org.linphone.ui.main.help.viewmodel.HelpViewModel
 import org.linphone.utils.AppUtils
 
 class DebugFragment : GenericMainFragment() {
+    companion object {
+        private const val TAG = "[Debug Fragment]"
+    }
+
     private lateinit var binding: HelpDebugFragmentBinding
 
     private lateinit var viewModel: HelpViewModel
@@ -76,6 +84,28 @@ class DebugFragment : GenericMainFragment() {
             val label = getString(R.string.help_troubleshooting_sdk_version_title)
             val value = viewModel.sdkVersion.value.orEmpty()
             AppUtils.copyToClipboard(requireContext(), label, value)
+        }
+
+        // MyTel: let the user check / request the battery optimization
+        // exemption that keeps the keep-alive service alive in background.
+        binding.setBatteryClickListener {
+            val powerManager =
+                requireContext().getSystemService(Context.POWER_SERVICE) as PowerManager
+            if (powerManager.isIgnoringBatteryOptimizations(requireContext().packageName)) {
+                (requireActivity() as GenericActivity).showGreenToast(
+                    getString(R.string.help_troubleshooting_battery_already_exempted),
+                    R.drawable.check
+                )
+            } else {
+                @Suppress("BatteryLife")
+                val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
+                intent.data = Uri.parse("package:${requireContext().packageName}")
+                try {
+                    requireContext().startActivity(intent)
+                } catch (ex: Exception) {
+                    Log.e("$TAG Can't start battery optimization request intent: $ex")
+                }
+            }
         }
 
         viewModel.debugLogsCleanedEvent.observe(viewLifecycleOwner) {

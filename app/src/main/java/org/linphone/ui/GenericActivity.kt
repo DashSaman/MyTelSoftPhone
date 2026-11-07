@@ -32,6 +32,8 @@ import android.view.WindowManager
 import androidx.annotation.DrawableRes
 import androidx.annotation.MainThread
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.os.LocaleListCompat
 import androidx.core.view.children
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
@@ -96,6 +98,16 @@ open class GenericActivity : AppCompatActivity() {
         }
 
         super.onCreate(savedInstanceState)
+
+        // MyTel product requirement: the app UI language is always English,
+        // regardless of the device locale (owner order 2026-11-06). Applied
+        // idempotently in the shared AppCompat activity lifecycle right after
+        // super.onCreate so every entry activity is covered; chat content in
+        // any language remains fully functional.
+        val english = LocaleListCompat.forLanguageTags("en")
+        if (AppCompatDelegate.getApplicationLocales() != english) {
+            AppCompatDelegate.setApplicationLocales(english)
+        }
     }
 
     protected fun checkMainColorTheme() {

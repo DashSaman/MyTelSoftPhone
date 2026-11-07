@@ -62,7 +62,8 @@ open class AccountLoginViewModel
 
     val serverPort = MutableLiveData<String>()
 
-    val useUdpTransport = MutableLiveData<Boolean>()
+    // 0 = TLS, 1 = TCP, 2 = UDP (indexes of the transport RadioGroup)
+    val transportType = MutableLiveData<Int>()
 
     val internationalPrefix = MutableLiveData<String>()
 
@@ -93,7 +94,7 @@ open class AccountLoginViewModel
         // types extension + password, while still being able to override them.
         serverAddress.value = corePreferences.defaultDomain
         serverPort.value = "57306"
-        useUdpTransport.value = false
+        transportType.value = 0
     }
 
     private lateinit var newlyCreatedAuthInfo: AuthInfo
@@ -168,6 +169,11 @@ open class AccountLoginViewModel
     }
 
     @UiThread
+    fun setTransport(type: Int) {
+        transportType.value = type
+    }
+
+    @UiThread
     fun login() {
         coreContext.postOnCoreThread { core ->
             core.loadConfigFromXml(corePreferences.linphoneDefaultValuesPath)
@@ -218,6 +224,19 @@ open class AccountLoginViewModel
 
             val domain = identityAddress.domain
 
+            // MyTel: purge stale credentials for this identity before adding
+            // the new ones — a previously failed attempt (typo'd password)
+            // must not shadow the fresh password in the core's auth list.
+            // Only entries whose domain EXACTLY matches are removed: entries
+            // with a null/other domain may belong to TURN/CardDAV and must
+            // never be touched by a SIP login.
+            for (existing in core.authInfoList) {
+                if (existing.username == user && existing.domain == domain) {
+                    Log.i("$TAG Removing stale auth info for [$user] on domain [${existing.domain}]")
+                    core.removeAuthInfo(existing)
+                }
+            }
+
             newlyCreatedAuthInfo = Factory.instance().createAuthInfo(
                 user,
                 null,
@@ -234,7 +253,11 @@ open class AccountLoginViewModel
             // MyTel: explicit server address + port + transport, so custom
             // SBC ports such as 57306 are actually used for registration.
             val portValue = serverPort.value.orEmpty().trim()
-            val transport = if (useUdpTransport.value == true) TransportType.Udp else TransportType.Tls
+            val transport = when (transportType.value) {
+                1 -> TransportType.Tcp
+                2 -> TransportType.Udp
+                else -> TransportType.Tls
+            }
             val serverUri = StringBuilder("sip:").append(serverValue.removePrefix("sip:"))
             if (portValue.isNotEmpty()) {
                 serverUri.append(":").append(portValue)

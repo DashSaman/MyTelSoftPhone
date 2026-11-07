@@ -32,7 +32,8 @@ coil = "3.6.3"
 dotsIndicator = "5.1.1"
 photoview = "2.3.0"
 openidAppauth = "0.11.1"
-linphone = "5.6.+"
+# MyTel: pinned so mirror outages can't silently change the engine under us
+linphone = "5.6.0-alpha.190+026b4e9992"
 
 junit = "4.13.2"
 mockk = "1.14.11"

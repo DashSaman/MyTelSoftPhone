@@ -105,7 +105,10 @@ class CorePreferences
 
     @get:AnyThread @set:WorkerThread
     var keepServiceAlive: Boolean
-        get() = config.getBool("app", "keep_service_alive", false)
+        // MyTel: keep-alive defaults to true so the registration survives in
+        // background even without push notifications (paired with the battery
+        // optimization exemption asked on first launch).
+        get() = config.getBool("app", "keep_service_alive", true)
         set(value) {
             config.setBool("app", "keep_service_alive", value)
         }
@@ -340,10 +343,11 @@ class CorePreferences
             config.setInt("app", "dark_mode", value)
         }
 
-    // Allows to make screenshots
+    // Allows to make screenshots. MyTel: default false so users can share
+    // screenshots with support / docs; toggle stays available in settings.
     @get:AnyThread @set:WorkerThread
     var enableSecureMode: Boolean
-        get() = config.getBool("ui", "enable_secure_mode", true)
+        get() = config.getBool("ui", "enable_secure_mode", false)
         set(value) {
             config.setBool("ui", "enable_secure_mode", value)
         }

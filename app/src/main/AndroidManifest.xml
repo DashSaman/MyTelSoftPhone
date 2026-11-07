@@ -45,6 +45,10 @@
     <!-- Needed for auto start at boot if keep alive service is enabled -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
+    <!-- MyTel: allows asking the user to exempt the app from battery
+    optimizations so calls & messages keep working in background -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+
     <uses-permission android:name="android.permission.READ_PHONE_STATE"/>
     <uses-permission android:name="android.permission.READ_PHONE_NUMBERS"/>
 
@@ -62,6 +66,18 @@
         android:appCategory="social"
         android:largeHeap="true"
         tools:targetApi="35">
+
+        <!-- MyTel: English-only product UI. autoStoreLocales is the documented
+        per-app-locale storage switch for API levels below 33; AppCompat reads
+        it from this metadata-holder service, not from application metadata -->
+        <service
+            android:name="androidx.appcompat.app.AppLocalesMetadataHolderService"
+            android:enabled="false"
+            android:exported="false">
+            <meta-data
+                android:name="autoStoreLocales"
+                android:value="true" />
+        </service>
 
         <!-- Required for chat message & call notifications to be displayed in Android auto -->
         <meta-data

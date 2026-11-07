@@ -20,7 +20,8 @@
 
         <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_width="match_parent"
-            android:layout_height="match_parent">
+            android:layout_height="match_parent"
+            android:background="@color/mytel_page_bg">
 
             <androidx.appcompat.widget.AppCompatTextView
                 android:onClick="@{skipClickListener}"
@@ -36,42 +37,17 @@
                 android:paddingEnd="20dp"
                 android:text="@string/welcome_carousel_skip"
                 android:textSize="13sp"
-                android:textColor="?attr/color_text"
+                android:textColor="@color/mytel_text"
+                android:background="@drawable/squircle_transparent_button_background"
                 app:layout_constraintTop_toTopOf="parent"
                 app:layout_constraintEnd_toEndOf="parent" />
-
-            <androidx.appcompat.widget.AppCompatTextView
-                style="@style/default_text_style_800"
-                android:id="@+id/title_first_line"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="65dp"
-                android:layout_marginTop="16dp"
-                android:text="@string/welcome_page_title"
-                android:textColor="?attr/color_text"
-                android:textSize="36sp"
-                app:layout_constraintTop_toTopOf="parent"
-                app:layout_constraintStart_toStartOf="parent"/>
-
-            <androidx.appcompat.widget.AppCompatTextView
-                style="@style/default_text_style_800"
-                android:id="@+id/title_second_line"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginEnd="65dp"
-                android:paddingBottom="16dp"
-                android:text="@string/welcome_page_subtitle"
-                android:textColor="?attr/color_text"
-                android:textSize="26sp"
-                app:layout_constraintTop_toBottomOf="@id/title_first_line"
-                app:layout_constraintEnd_toEndOf="parent"/>
 
             <androidx.viewpager2.widget.ViewPager2
                 android:id="@+id/pager"
                 android:layout_width="0dp"
                 android:layout_height="0dp"
                 android:layout_marginBottom="20dp"
-                app:layout_constraintTop_toBottomOf="@id/title_second_line"
+                app:layout_constraintTop_toTopOf="parent"
                 app:layout_constraintBottom_toTopOf="@id/dots_indicator"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"/>
@@ -81,12 +57,12 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="20dp"
-                app:dotsColor="?attr/color_main2_200"
+                app:dotsColor="@color/mytel_border"
                 app:dotsCornerRadius="8dp"
                 app:dotsSize="13dp"
                 app:dotsSpacing="5dp"
                 app:dotsWidthFactor="2.5"
-                app:selectedDotColor="?attr/color_main1_500"
+                app:selectedDotColor="@color/mytel_blue"
                 app:progressMode="false"
                 app:layout_constraintTop_toBottomOf="@id/pager"
                 app:layout_constraintBottom_toTopOf="@id/next"
@@ -98,29 +74,19 @@
                 style="@style/primary_button_label_style"
                 android:id="@+id/next"
                 android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="16dp"
-                android:layout_marginEnd="16dp"
-                android:layout_marginBottom="16dp"
+                android:layout_height="56dp"
+                android:gravity="center"
+                android:layout_marginStart="24dp"
+                android:layout_marginEnd="24dp"
+                android:layout_marginBottom="24dp"
+                android:background="@drawable/mytel_primary_button_background"
                 android:text="@string/next"
+                android:textColor="@color/mytel_soft_white"
                 app:layout_constraintWidth_max="@dimen/button_max_width"
                 app:layout_constraintTop_toBottomOf="@id/dots_indicator"
-                app:layout_constraintBottom_toTopOf="@id/mountains"
+                app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintEnd_toEndOf="parent" />
-
-            <ImageView
-                android:id="@+id/mountains"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:src="@drawable/mountains"
-                android:adjustViewBounds="true"
-                android:scaleType="centerCrop"
-                android:contentDescription="@null"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintBottom_toBottomOf="parent"
-                app:tint="?attr/color_main1_500" />
 
         </androidx.constraintlayout.widget.ConstraintLayout>
 

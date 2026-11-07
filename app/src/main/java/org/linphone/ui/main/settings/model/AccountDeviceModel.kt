@@ -54,7 +54,8 @@ class AccountDeviceModel
         hideYear = false
     )
     val lastConnectionTime = TimestampUtils.timeToString(timestamp)
-    val isMobileDevice = accountDevice.userAgent.contains("My-Tell-Siphone") ||
+    val isMobileDevice = accountDevice.userAgent.contains("Mytell") ||
+        accountDevice.userAgent.contains("My-Tell-Siphone") ||
         accountDevice.userAgent.contains("MyTelSoftPhone") ||
         accountDevice.userAgent.contains("LinphoneAndroid") ||
         accountDevice.userAgent.contains("LinphoneiOS")

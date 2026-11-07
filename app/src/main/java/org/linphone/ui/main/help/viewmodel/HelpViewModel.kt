@@ -243,7 +243,7 @@ class HelpViewModel
             val context = coreContext.context
             val builder = StringBuilder()
 
-            builder.appendLine("MyTelSoftPhone debug report")
+            builder.appendLine("MytellPhone debug report")
             builder.appendLine("=========================")
             builder.appendLine(
                 "Time: " + java.text.SimpleDateFormat(

@@ -19,11 +19,16 @@
  */
 package org.linphone.ui.welcome
 
+import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
+import android.os.PowerManager
+import android.provider.Settings
 import android.view.View
 import androidx.activity.addCallback
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
@@ -53,6 +58,13 @@ class WelcomeActivity : GenericActivity() {
     private lateinit var viewPager: ViewPager2
 
     private val pageChangedCallback = PageChangedCallback()
+
+    private var batteryOptimizationDialogShown = false
+
+    private val batteryOptimizationLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+            goToAssistant()
+        }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
@@ -104,6 +116,21 @@ class WelcomeActivity : GenericActivity() {
     }
 
     private fun goToAssistant() {
+        // MyTel: ask once for the battery optimization exemption so the
+        // keep-alive service is never killed by the system in background.
+        val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+        if (!batteryOptimizationDialogShown &&
+            !powerManager.isIgnoringBatteryOptimizations(packageName)
+        ) {
+            batteryOptimizationDialogShown = true
+            Log.i("$TAG Asking the user to disable battery optimizations")
+            @Suppress("BatteryLife")
+            val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
+            intent.data = Uri.parse("package:$packageName")
+            batteryOptimizationLauncher.launch(intent)
+            return
+        }
+
         finish()
         val intent = Intent(this, AssistantActivity::class.java)
         intent.putExtra(AssistantActivity.SKIP_LANDING_EXTRA, true)

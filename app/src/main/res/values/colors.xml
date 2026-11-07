@@ -96,4 +96,12 @@
     <color name="mineral_blue_main_100">#C5E0F3</color>
     <color name="mineral_blue_main_500">#669ED7</color>
 
+
+    <!-- MyTel brand palette (design approved by technical lead 2026-11-06) -->
+    <color name="mytel_blue">#0A67FF</color>
+    <color name="mytel_orange">#FFAB2E</color>
+    <color name="mytel_page_bg">#F6F9FD</color>
+    <color name="mytel_text">#22334D</color>
+    <color name="mytel_border">#DBE7F5</color>
+    <color name="mytel_soft_white">#E8F1FC</color>
 </resources>

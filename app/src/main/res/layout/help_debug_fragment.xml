@@ -15,6 +15,9 @@
             name="sdkVersionClickListener"
             type="View.OnClickListener" />
         <variable
+            name="batteryClickListener"
+            type="View.OnClickListener" />
+        <variable
             name="viewModel"
             type="org.linphone.ui.main.help.viewmodel.HelpViewModel" />
     </data>
@@ -95,6 +98,19 @@
                         android:visibility="@{viewModel.uploadLogsAvailable ? View.VISIBLE : View.GONE}"
                         bind:ignore="MissingConstraints" />
 
+                    <androidx.appcompat.widget.AppCompatTextView
+                        style="@style/tertiary_button_label_style"
+                        android:id="@+id/battery"
+                        android:onClick="@{batteryClickListener}"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:background="@drawable/tertiary_button_background"
+                        android:gravity="center"
+                        android:text="@string/help_troubleshooting_battery_title"
+                        android:maxLines="1"
+                        android:ellipsize="end"
+                        bind:ignore="MissingConstraints" />
+
                     <androidx.constraintlayout.helper.widget.Flow
                         android:id="@+id/logs_flow"
                         android:layout_width="wrap_content"
@@ -105,7 +121,7 @@
                         app:flow_horizontalGap="16dp"
                         app:flow_verticalGap="10dp"
                         app:flow_horizontalStyle="spread_inside"
-                        app:constraint_referenced_ids="clean_logs, send_logs"
+                        app:constraint_referenced_ids="clean_logs, send_logs, battery"
                         app:layout_constraintStart_toStartOf="@id/info_section"
                         app:layout_constraintTop_toTopOf="parent" />
 

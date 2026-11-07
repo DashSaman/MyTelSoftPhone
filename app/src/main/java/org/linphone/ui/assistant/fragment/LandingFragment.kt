@@ -107,6 +107,14 @@ class LandingFragment : GenericFragment() {
             }
         }
 
+        binding.setAutoDetectClickListener {
+            if (findNavController().currentDestination?.id == R.id.landingFragment) {
+                val action =
+                    LandingFragmentDirections.actionLandingFragmentToAutoDetectFragment()
+                findNavController().navigate(action)
+            }
+        }
+
         binding.setThirdPartySipAccountLoginClickListener {
             if (viewModel.conditionsAndPrivacyPolicyAccepted) {
                 goToLoginThirdPartySipAccountFragment(false)

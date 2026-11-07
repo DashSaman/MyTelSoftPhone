@@ -74,7 +74,7 @@ run {
         // No tag in this clone (shallow checkout or fresh repository):
         // fall back to a versionName-based scheme so file names are never empty.
         val commitCount = gitCommand("rev-list", "--count", "HEAD") ?: "0"
-        "1.3.0.$commitCount" + (gitCommitHash?.let { "+$it" } ?: "")
+        "2.0.0.$commitCount" + (gitCommitHash?.let { "+$it" } ?: "")
     }
     println("Computed git version: $gitVersion")
 }
@@ -102,8 +102,8 @@ android {
         applicationId = packageName
         minSdk = 28
         targetSdk = 37
-        versionCode = 10003
-        versionName = "1.3.0"
+        versionCode = 20100
+        versionName = "2.1.0"
 
         manifestPlaceholders["appAuthRedirectScheme"] = packageName
 
@@ -118,26 +118,36 @@ android {
         variant.outputs
             .map { it as com.android.build.gradle.internal.api.BaseVariantOutputImpl }
             .forEach { output ->
-                output.outputFileName = "MyTelSoftPhone-${variant.buildType.name}-$gitVersion.apk"
+                output.outputFileName = "MytellPhone-${variant.buildType.name}-$gitVersion.apk"
             }
     }
 
+    // MyTel: keystore.properties is deliberately not committed; a clean
+    // checkout (e.g. CI) must still configure and build. Without it the
+    // release build is signed with the debug key — never ship that APK.
     val keystorePropertiesFile = rootProject.file("keystore.properties")
     val keystoreProperties = Properties()
-    keystoreProperties.load(FileInputStream(keystorePropertiesFile))
+    if (keystorePropertiesFile.exists()) {
+        keystoreProperties.load(FileInputStream(keystorePropertiesFile))
+    } else {
+        println("keystore.properties not found, release builds will use the debug keystore")
+    }
 
     signingConfigs {
         create("release") {
-            val keyStorePath = keystoreProperties["storeFile"] as String
-            val keyStore = project.file(keyStorePath)
-            if (keyStore.exists()) {
+            val keyStorePath = keystoreProperties["storeFile"] as? String
+            val keyStore = keyStorePath?.let { project.file(it) }
+            if (keyStore != null && keyStore.exists() && keystorePropertiesFile.exists()) {
                 storeFile = keyStore
                 storePassword = keystoreProperties["storePassword"] as String
                 keyAlias = keystoreProperties["keyAlias"] as String
                 keyPassword = keystoreProperties["keyPassword"] as String
                 println("Signing config release is using keystore [$storeFile]")
             } else {
-                println("Keystore [$storeFile] doesn't exists!")
+                println("Keystore not available, falling back to debug signing for release")
+                // Reuse the debug signing config so assembleRelease succeeds
+                // on clean checkouts (CI); never ship such an APK publicly.
+                initWith(signingConfigs.getByName("debug"))
             }
         }
     }

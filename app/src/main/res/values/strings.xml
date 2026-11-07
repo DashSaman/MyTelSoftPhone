@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='UTF-8'?>
 
 <!DOCTYPE resources [
-    <!ENTITY appName "MyTelSoftPhone">
+    <!ENTITY appName "MytellPhone">
 ]>
 
 <resources>
@@ -164,7 +164,21 @@
 
     <string name="assistant_server_address">Server</string>
     <string name="assistant_server_port">Port</string>
-    <string name="assistant_use_udp_transport">Use UDP instead of TLS</string>
+    <string name="assistant_transport_label">Protocol &amp; transport</string>
+    <string name="assistant_transport_sip">SIP</string>
+    <string name="assistant_auto_detect">Don\'t know these settings? Detect automatically</string>
+    <string name="assistant_auto_detect_title">Detect server settings</string>
+    <string name="assistant_auto_detect_explanation">MytellPhone will probe your SIP server on the standard ports (5060 &amp; 5061) plus the custom port from the login screen, using SIP over TLS, TCP and UDP, and list the working combinations. Pick the one you want to continue with.</string>
+    <string name="assistant_auto_detect_scan">Start detection</string>
+    <string name="assistant_auto_detect_scanning">Probing %s…</string>
+    <string name="assistant_auto_detect_no_results">No SIP service was detected. Check the server address or enter the settings manually.</string>
+    <string name="assistant_auto_detect_no_sip_reply">Port open but no SIP reply</string>
+    <string name="assistant_auto_detect_certificate_error">TLS reachable but certificate not trusted</string>
+    <string name="assistant_auto_detect_udp_inconclusive">No SIP reply over UDP (may be filtered)</string>
+    <string name="assistant_auto_detect_failed">Unreachable</string>
+    <string name="assistant_auto_detect_applied_toast">Server settings applied</string>
+    <string name="help_troubleshooting_battery_title">Battery optimization</string>
+    <string name="help_troubleshooting_battery_already_exempted">Battery optimization already disabled — app can keep running in background</string>
     <string name="assistant_scan_qr_code">Scan QR code</string>
     <string name="assistant_qr_code_invalid_toast">Invalid QR code!</string>
     <string name="assistant_login_third_party_sip_account">Use a third party SIP account</string>
@@ -1086,4 +1100,9 @@
     <string name="managed_xml_config_description" translatable="false">Raw XML provisioning content applied on startup.</string>
     <string name="managed_root_ca_title" translatable="false">Root CA certificate</string>
     <string name="managed_root_ca_description" translatable="false">PEM-encoded root certificate(s) used to validate TLS connections.</string>
+
+    <!-- MyTel branding (v2.1.0) -->
+    <string name="mytel_sign_in" translatable="false">Sign in</string>
+    <string name="mytel_tagline" translatable="false">Calls and messages for your team</string>
+    <string name="app_wordmark" translatable="false">MytellPhone</string>
 </resources>
