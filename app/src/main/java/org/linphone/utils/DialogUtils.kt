@@ -251,7 +251,8 @@ class DialogUtils {
         fun getDeleteContactConfirmationDialog(
             context: Context,
             viewModel: ConfirmationDialogModel,
-            contactName: String
+            contactName: String,
+            message: String = context.getString(R.string.contact_dialog_delete_message)
         ): Dialog {
             val binding: DialogDeleteContactBinding = DataBindingUtil.inflate(
                 LayoutInflater.from(context),
@@ -264,6 +265,7 @@ class DialogUtils {
                 R.string.contact_dialog_delete_title,
                 contactName
             )
+            binding.message.text = message
 
             return getDialog(context, binding)
         }
@@ -348,6 +350,26 @@ class DialogUtils {
             binding.viewModel = viewModel
             // For some reason, binding.subject triggers an error on Android Studio...
             binding.root.findViewById<AppCompatEditText>(R.id.subject)?.requestFocus()
+
+            return getDialog(context, binding)
+        }
+
+        @UiThread
+        fun getPreDialEditDialog(
+            context: Context,
+            lifecycleOwner: LifecycleOwner,
+            viewModel: org.linphone.ui.main.model.PreDialEditDialogModel
+        ): Dialog {
+            val binding: org.linphone.databinding.DialogPreDialEditBinding =
+                DataBindingUtil.inflate(
+                    LayoutInflater.from(context),
+                    R.layout.dialog_pre_dial_edit,
+                    null,
+                    false
+                )
+            binding.lifecycleOwner = lifecycleOwner
+            binding.viewModel = viewModel
+            binding.root.findViewById<AppCompatEditText>(R.id.number)?.requestFocus()
 
             return getDialog(context, binding)
         }

@@ -19,16 +19,22 @@
  */
 package org.linphone.ui.main.contacts.fragment
 
+import android.Manifest
 import android.app.Dialog
 import android.content.ActivityNotFoundException
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Bundle
 import android.provider.ContactsContract
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.UiThread
+import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
+import androidx.core.net.toUri
+import androidx.core.view.doOnPreDraw
 import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
@@ -45,12 +51,12 @@ import org.linphone.ui.main.contacts.model.ContactTrustDialogModel
 import org.linphone.ui.main.contacts.model.NumberOrAddressPickerDialogModel
 import org.linphone.ui.main.contacts.viewmodel.ContactViewModel
 import org.linphone.ui.main.fragment.SlidingPaneChildFragment
+import org.linphone.ui.main.model.PreDialEditDialogModel
 import org.linphone.utils.AppUtils
 import org.linphone.utils.ConfirmationDialogModel
 import org.linphone.utils.DialogUtils
 import org.linphone.utils.Event
-import androidx.core.net.toUri
-import androidx.core.view.doOnPreDraw
+import org.linphone.utils.hideKeyboard
 
 @UiThread
 class ContactFragment : SlidingPaneChildFragment() {
@@ -59,6 +65,21 @@ class ContactFragment : SlidingPaneChildFragment() {
     }
 
     private lateinit var binding: ContactFragmentBinding
+
+    private val requestWriteContactsPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            if (granted) {
+                Log.i("$TAG WRITE_CONTACTS granted, resuming contact deletion")
+                showDeleteConfirmationDialog()
+            } else {
+                Log.w("$TAG WRITE_CONTACTS denied by user")
+                val message = getString(R.string.contact_write_permission_denied_toast)
+                (requireActivity() as GenericActivity).showRedToast(
+                    message,
+                    R.drawable.warning_circle
+                )
+            }
+        }
 
     private lateinit var viewModel: ContactViewModel
 
@@ -112,7 +133,38 @@ class ContactFragment : SlidingPaneChildFragment() {
         }
 
         binding.setDeleteClickListener {
-            showDeleteConfirmationDialog()
+            if (viewModel.isNative.value == true && !hasWriteContactsPermission()) {
+                Log.i("$TAG Native contact deletion needs the WRITE_CONTACTS permission, requesting it")
+                requestWriteContactsPermissionLauncher.launch(Manifest.permission.WRITE_CONTACTS)
+            } else {
+                showDeleteConfirmationDialog()
+            }
+        }
+
+        viewModel.showPreDialEditEvent.observe(viewLifecycleOwner) {
+            it.consume { request ->
+                showPreDialEditDialog(request)
+            }
+        }
+
+        viewModel.contactRemovalFailedEvent.observe(viewLifecycleOwner) {
+            it.consume {
+                val message = getString(R.string.contact_deletion_failed_toast)
+                (requireActivity() as GenericActivity).showRedToast(
+                    message,
+                    R.drawable.warning_circle
+                )
+            }
+        }
+
+        viewModel.contactRequiresWritePermissionEvent.observe(viewLifecycleOwner) {
+            it.consume {
+                val message = getString(R.string.contact_write_permission_needed_toast)
+                (requireActivity() as GenericActivity).showRedToast(
+                    message,
+                    R.drawable.warning_circle
+                )
+            }
         }
 
         binding.setGoToSharedMediaClickListener {
@@ -382,10 +434,16 @@ class ContactFragment : SlidingPaneChildFragment() {
 
     private fun showDeleteConfirmationDialog() {
         val model = ConfirmationDialogModel()
+        val isNative = viewModel.isNative.value == true
         val dialog = DialogUtils.getDeleteContactConfirmationDialog(
             requireActivity(),
             model,
-            viewModel.contact.value?.name?.value ?: ""
+            viewModel.contact.value?.name?.value ?: "",
+            message = if (isNative) {
+                getString(R.string.contact_dialog_delete_message_native)
+            } else {
+                getString(R.string.contact_dialog_delete_message)
+            }
         )
 
         model.dismissEvent.observe(viewLifecycleOwner) {
@@ -397,9 +455,43 @@ class ContactFragment : SlidingPaneChildFragment() {
         model.confirmEvent.observe(viewLifecycleOwner) {
             it.consume {
                 Log.w(
-                    "$TAG Deleting contact [${viewModel.contact.value?.name?.value}]"
+                    "$TAG Deleting contact [${viewModel.contact.value?.name?.value}] (native=$isNative)"
                 )
-                viewModel.deleteContact()
+                viewModel.deleteContact(nativeContactDeletionGranted = isNative)
+                dialog.dismiss()
+            }
+        }
+
+        dialog.show()
+    }
+
+    private fun hasWriteContactsPermission(): Boolean {
+        return ContextCompat.checkSelfPermission(
+            requireContext(),
+            Manifest.permission.WRITE_CONTACTS
+        ) == PackageManager.PERMISSION_GRANTED
+    }
+
+    private fun showPreDialEditDialog(request: ContactViewModel.PreDialRequest) {
+        val model = PreDialEditDialogModel(request.contactName, request.number)
+        val dialog = DialogUtils.getPreDialEditDialog(requireActivity(), viewLifecycleOwner, model)
+
+        model.dismissEvent.observe(viewLifecycleOwner) {
+            it.consume {
+                Log.i("$TAG Pre-dial edit cancelled, nothing initiated")
+                dialog.dismiss()
+            }
+        }
+
+        model.confirmEvent.observe(viewLifecycleOwner) {
+            it.consume { destination ->
+                Log.i("$TAG Pre-dial confirmed, calling displayed destination [$destination]")
+                dialog.currentFocus?.hideKeyboard()
+                viewModel.callEditedDestination(
+                    destination,
+                    request.isVideo,
+                    request.originalAddress
+                )
                 dialog.dismiss()
             }
         }

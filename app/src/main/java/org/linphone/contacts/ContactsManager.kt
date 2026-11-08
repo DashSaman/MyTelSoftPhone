@@ -397,6 +397,28 @@ class ContactsManager
         notifyContactsListChanged()
     }
 
+    /**
+     * Deletes a device (native) contact row through ContactsContract.
+     * Returns false when the provider refuses so callers never report a
+     * false success. Requires WRITE_CONTACTS to have been granted.
+     */
+    @WorkerThread
+    fun deleteNativeContact(nativeUri: String): Boolean {
+        return try {
+            val appContext = coreContext.context
+            val deletedRows = appContext.contentResolver.delete(
+                android.net.Uri.parse(nativeUri),
+                null,
+                null
+            )
+            Log.i("$TAG Native contact deletion for [$nativeUri] removed [$deletedRows] row(s)")
+            deletedRows > 0
+        } catch (e: Exception) {
+            Log.e("$TAG Native contact deletion failed for [$nativeUri]: ${e.message}")
+            false
+        }
+    }
+
     @WorkerThread
     fun onNativeContactsLoaded() {
         nativeContactsLoaded = true

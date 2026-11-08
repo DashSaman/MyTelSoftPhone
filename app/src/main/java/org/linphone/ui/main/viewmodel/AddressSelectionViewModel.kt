@@ -406,6 +406,34 @@ abstract class AddressSelectionViewModel
             }
         }
 
+        // MyTel server directory: inject matching entries by name or extension
+        // (MagicSearch does not index ApplicationCache friends on this SDK).
+        // Dedup by canonical address (leader correction #2-e), not by friend object.
+        val directoryList = arrayListOf<ConversationContactOrSuggestionModel>()
+        val seenCanonicalAddresses = mutableSetOf<String>()
+        try {
+            for (friend in coreContext.serverDirectoryManager.searchDirectoryFriends(currentFilter)) {
+                val address = friend.address ?: continue
+                val canonical = address.asStringUriOnly()
+                // Skip if a MagicSearch result or another directory entry
+                // already produced the same canonical address
+                val duplicated = contactsList.any {
+                    it.address?.asStringUriOnly() == canonical
+                } || !seenCanonicalAddresses.add(canonical)
+                if (duplicated) continue
+
+                val model = ConversationContactOrSuggestionModel(address, friend = friend)
+                val avatarModel = coreContext.contactsManager.getContactAvatarModelForFriend(friend)
+                model.avatarModel.postValue(avatarModel)
+                directoryList.add(model)
+            }
+            if (directoryList.isNotEmpty()) {
+                Log.i("$TAG Added [${directoryList.size}] server directory entries for filter [$currentFilter]")
+            }
+        } catch (e: Exception) {
+            Log.e("$TAG Failed to add server directory entries: ${e.message}")
+        }
+
         val collator = Collator.getInstance(Locale.getDefault())
         favoritesList.sortWith { model1, model2 ->
             collator.compare(model1.name, model2.name)
@@ -416,10 +444,14 @@ abstract class AddressSelectionViewModel
         suggestionsList.sortWith { model1, model2 ->
             collator.compare(model1.name, model2.name)
         }
+        directoryList.sortWith { model1, model2 ->
+            collator.compare(model1.name, model2.name)
+        }
 
         val list = arrayListOf<ConversationContactOrSuggestionModel>()
         list.addAll(conversationsList)
         list.addAll(favoritesList)
+        list.addAll(directoryList)
         list.addAll(contactsList)
         list.addAll(suggestionsList)
         list.addAll(requestList)

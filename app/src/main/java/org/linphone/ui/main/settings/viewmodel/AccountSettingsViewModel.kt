@@ -25,6 +25,7 @@ import androidx.lifecycle.MutableLiveData
 import java.util.Locale
 import org.linphone.LinphoneApplication.Companion.coreContext
 import org.linphone.LinphoneApplication.Companion.corePreferences
+import org.linphone.contacts.ServerDirectoryManager
 import org.linphone.core.AVPFMode
 import org.linphone.core.Account
 import org.linphone.core.Address
@@ -91,6 +92,8 @@ class AccountSettingsViewModel
 
     val mwiUri = MutableLiveData<String>()
     val voicemailUri = MutableLiveData<String>()
+
+    val directoryUrl = MutableLiveData<String>()
 
     val applyPrefix = MutableLiveData<Boolean>()
     val replacePlusBy00 = MutableLiveData<Boolean>()
@@ -180,6 +183,15 @@ class AccountSettingsViewModel
 
                 mwiUri.postValue(params.mwiServerAddress?.asStringUriOnly().orEmpty())
                 voicemailUri.postValue(params.voicemailAddress?.asStringUriOnly().orEmpty())
+
+                val accountIdentity = params.identityAddress?.asStringUriOnly().orEmpty()
+                directoryUrl.postValue(
+                    core.config.getString(
+                        "app",
+                        ServerDirectoryManager.directoryUrlKey(accountIdentity),
+                        ""
+                    ).orEmpty()
+                )
 
                 applyPrefix.postValue(params.useInternationalPrefixForCallsAndChats)
                 replacePlusBy00.postValue(params.isDialEscapePlusEnabled)
@@ -341,6 +353,16 @@ class AccountSettingsViewModel
                 newParams.isDialEscapePlusEnabled = replacePlusBy00.value == true
 
                 account.params = newParams
+
+                val accountIdentity = account.params.identityAddress?.asStringUriOnly().orEmpty()
+                val directoryUrlValue = directoryUrl.value.orEmpty().trim()
+                core.config.setString(
+                    "app",
+                    ServerDirectoryManager.directoryUrlKey(accountIdentity),
+                    directoryUrlValue
+                )
+                Log.i("$TAG Directory URL for [$accountIdentity] set to [$directoryUrlValue], refreshing")
+                coreContext.serverDirectoryManager.refresh()
                 Log.i("$TAG Changes have been saved")
             }
         }

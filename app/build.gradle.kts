@@ -102,8 +102,8 @@ android {
         applicationId = packageName
         minSdk = 28
         targetSdk = 37
-        versionCode = 20100
-        versionName = "2.1.0"
+        versionCode = 20200
+        versionName = "2.2.0"
 
         manifestPlaceholders["appAuthRedirectScheme"] = packageName
 
@@ -280,6 +280,7 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation(libs.mockk)
+    testImplementation(libs.org.json)
 }
 
 configure<org.jlleitschuh.gradle.ktlint.KtlintExtension> {

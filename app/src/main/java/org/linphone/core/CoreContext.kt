@@ -50,6 +50,7 @@ import org.linphone.LinphoneApplication.Companion.coreContext
 import org.linphone.LinphoneApplication.Companion.corePreferences
 import org.linphone.compatibility.Compatibility
 import org.linphone.contacts.ContactsManager
+import org.linphone.contacts.ServerDirectoryManager
 import org.linphone.core.tools.Log
 import org.linphone.notifications.NotificationsManager
 import org.linphone.telecom.TelecomManager
@@ -74,6 +75,8 @@ class CoreContext
     }
 
     val contactsManager = ContactsManager()
+
+    val serverDirectoryManager = ServerDirectoryManager(this)
 
     val notificationsManager = NotificationsManager(context)
 
@@ -779,6 +782,15 @@ class CoreContext
             core.config.setString("sip", "rls_uri", "")
             Log.i("$TAG Removed injected linphone.org RLS URI from [sip] config")
         }
+        // Same migration scope: the old default config injected
+        // contacts_filter=sip.linphone.org, which excluded every contact on a
+        // third-party SIP domain from MagicSearch. Clear ONLY that exact
+        // injected value; an intentional custom filter survives.
+        val staleFilter = core.config.getString("ui", "contacts_filter", "").orEmpty()
+        if (staleFilter == "sip.linphone.org") {
+            core.config.setString("ui", "contacts_filter", "")
+            Log.i("$TAG Removed injected linphone.org contacts_filter (excluded third-party domains)")
+        }
         if (migrated > 0) {
             Log.i("$TAG Chat-defaults migration applied to $migrated account(s)")
         }
@@ -788,6 +800,8 @@ class CoreContext
     fun onCoreStarted() {
         Log.i("$TAG Core started, updating configuration if required")
         core.videoCodecPriorityPolicy = CodecPriorityPolicy.Auto
+        serverDirectoryManager.init()
+        serverDirectoryManager.onCoreStarted()
 
         // Set in the Core the list of directories from which it is allowed to delete a file related to a chat message
         val paths = arrayListOf<String>()

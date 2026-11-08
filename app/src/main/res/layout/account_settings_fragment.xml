@@ -178,6 +178,42 @@
 
                         <androidx.appcompat.widget.AppCompatTextView
                             style="@style/settings_title_padding_style"
+                            android:id="@+id/directory_url_title"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="20dp"
+                            android:layout_marginStart="16dp"
+                            android:layout_marginEnd="16dp"
+                            android:text="@string/account_settings_directory_url_title"
+                            android:maxLines="2"
+                            android:ellipsize="end"
+                            android:labelFor="@id/directory_url"
+                            app:layout_constraintTop_toBottomOf="@id/voicemail_uri"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintEnd_toEndOf="parent"/>
+
+                        <androidx.appcompat.widget.AppCompatEditText
+                            style="@style/default_text_style"
+                            android:id="@+id/directory_url"
+                            android:layout_width="0dp"
+                            android:layout_height="50dp"
+                            android:layout_marginEnd="16dp"
+                            android:layout_marginStart="16dp"
+                            android:layout_marginBottom="20dp"
+                            android:background="@drawable/edit_text_background"
+                            android:paddingStart="20dp"
+                            android:paddingEnd="20dp"
+                            android:text="@={viewModel.directoryUrl}"
+                            android:inputType="text|textUri"
+                            android:hint="@string/account_settings_directory_url_hint"
+                            app:layout_constraintHorizontal_bias="0"
+                            app:layout_constraintWidth_max="@dimen/text_input_max_width"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintEnd_toEndOf="parent"
+                            app:layout_constraintTop_toBottomOf="@id/directory_url_title" />
+
+                        <androidx.appcompat.widget.AppCompatTextView
+                            style="@style/settings_title_padding_style"
                             android:id="@+id/mwi_uri_title"
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
@@ -188,7 +224,7 @@
                             android:maxLines="2"
                             android:ellipsize="end"
                             android:labelFor="@id/mwi_uri"
-                            app:layout_constraintTop_toBottomOf="@id/voicemail_uri"
+                            app:layout_constraintTop_toBottomOf="@id/directory_url"
                             app:layout_constraintStart_toStartOf="parent"
                             app:layout_constraintEnd_toEndOf="parent"/>
 

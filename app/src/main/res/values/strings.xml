@@ -472,6 +472,8 @@
     <string name="account_settings_bundle_mode_title">Bundle mode</string>
     <string name="account_settings_cpim_in_basic_conversations_title">Use CPIM in \"basic\" conversations</string>
     <string name="account_settings_voicemail_uri_title">Voicemail URI</string>
+    <string name="account_settings_directory_url_title">Directory URL (server phonebook)</string>
+    <string name="account_settings_directory_url_hint">e.g. https://server/mytel-directory.json</string>
     <string name="account_settings_mwi_uri_title"> MWI server URI (Message Waiting Indicator)</string>
     <string name="account_settings_apply_international_prefix_title">Format phone numbers using international prefix</string>
     <string name="account_settings_replace_plus_by_00_title">Replace + by 00 when formatting phone numbers</string>
@@ -547,6 +549,10 @@
     <string name="contact_dialog_devices_trust_help_message">Check all of your contact devices to make sure your communications will be secured an unaltered.\nWhen all will be verified, you\'ll reach maximum trust level.</string>
     <string name="contact_dialog_delete_title">Delete %s?</string>
     <string name="contact_dialog_delete_message">This contact will be definitively removed.</string>
+        <string name="contact_deletion_failed_toast">Contact deletion failed, please try again</string>
+    <string name="contact_write_permission_needed_toast">Deleting a device contact requires the Contacts permission</string>
+    <string name="contact_write_permission_denied_toast">Contacts permission denied, contact was not deleted</string>
+<string name="contact_dialog_delete_message_native">This will remove the contact from your device address book. Linked accounts may also be affected.</string>
     <string name="contact_dialog_pick_phone_number_or_sip_address_title">Choose a number or a SIP address</string>
 
     <string name="contact_presence_status_online">Online</string>

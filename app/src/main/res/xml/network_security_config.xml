@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  MyTel network security: HTTPS-only everywhere.
+  - Release: system CA store only (production directory servers need a
+    publicly-trusted certificate or a CA installed in the SYSTEM store).
+  - Debug builds additionally trust the user-added certificate store so a
+    private CA installed by the developer validates the directory endpoint
+    during testing. Certificate and hostname validation are never bypassed.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+    <debug-overrides>
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates src="user" />
+        </trust-anchors>
+    </debug-overrides>
+</network-security-config>

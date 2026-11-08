@@ -29,6 +29,7 @@ import java.util.Locale
 import kotlinx.coroutines.launch
 import org.linphone.LinphoneApplication.Companion.coreContext
 import org.linphone.LinphoneApplication.Companion.corePreferences
+import org.linphone.utils.MyTelNumberNormalizer
 import org.linphone.R
 import org.linphone.contacts.ContactsManager
 import org.linphone.contacts.getListOfSipAddressesAndPhoneNumbers
@@ -139,6 +140,28 @@ class ContactViewModel
         MutableLiveData()
     }
 
+    val contactRemovalFailedEvent: MutableLiveData<Event<Boolean>> by lazy {
+        MutableLiveData()
+    }
+
+    val contactRequiresWritePermissionEvent: MutableLiveData<Event<Boolean>> by lazy {
+        MutableLiveData()
+    }
+
+    val showPreDialEditEvent: MutableLiveData<Event<PreDialRequest>> by lazy {
+        MutableLiveData()
+    }
+
+    data class PreDialRequest(
+        val number: String,
+        val contactName: String,
+        val isVideo: Boolean,
+        val originalAddress: Address,
+        /** The RAW stored string (e.g. `00989121234567`) before Linphone
+         * address parsing mangled it — normalization must run on THIS. */
+        val rawDisplayValue: String
+    )
+
     private var expectedAction: Int = START_AUDIO_CALL
     private val listener = object : ContactNumberOrAddressClickListener {
         @UiThread
@@ -148,12 +171,16 @@ class ContactViewModel
                 coreContext.postOnCoreThread { core ->
                     when (expectedAction) {
                         START_AUDIO_CALL -> {
-                            Log.i("$TAG Audio calling SIP address [${address.asStringUriOnly()}]")
-                            coreContext.startAudioCall(address)
+                            Log.i(
+                                "$TAG Pre-dial edit for audio call to SIP address [${address.asStringUriOnly()}]"
+                            )
+                            showPreDialEditor(address, isVideo = false, rawValue = model.displayedValue)
                         }
                         START_VIDEO_CALL -> {
-                            Log.i("$TAG Video calling SIP address [${address.asStringUriOnly()}]")
-                            coreContext.startVideoCall(address)
+                            Log.i(
+                                "$TAG Pre-dial edit for video call to SIP address [${address.asStringUriOnly()}]"
+                            )
+                            showPreDialEditor(address, isVideo = true, rawValue = model.displayedValue)
                         }
                         START_CONVERSATION -> {
                             Log.i(
@@ -406,14 +433,83 @@ class ContactViewModel
     }
 
     @UiThread
-    fun deleteContact() {
+    fun deleteContact(nativeContactDeletionGranted: Boolean = false) {
         coreContext.postOnCoreThread {
             if (::friend.isInitialized) {
-                Log.w("$TAG Deleting friend [${friend.name}]")
-                coreContext.contactsManager.contactRemoved(friend)
-                friend.remove()
-                coreContext.contactsManager.notifyContactsListChanged()
-                contactRemovedEvent.postValue(Event(true))
+                val nativeUri = friend.nativeUri
+                if (nativeUri.isNullOrEmpty()) {
+                    Log.w("$TAG Deleting friend [${friend.name}]")
+                    coreContext.contactsManager.contactRemoved(friend)
+                    friend.remove()
+                    coreContext.contactsManager.notifyContactsListChanged()
+                    contactRemovedEvent.postValue(Event(true))
+                } else if (nativeContactDeletionGranted) {
+                    Log.w("$TAG Deleting native contact [${friend.name}]")
+                    val removed = coreContext.contactsManager.deleteNativeContact(nativeUri)
+                    if (removed) {
+                        coreContext.contactsManager.contactRemoved(friend)
+                        friend.remove()
+                        coreContext.contactsManager.notifyContactsListChanged()
+                        contactRemovedEvent.postValue(Event(true))
+                    } else {
+                        Log.e("$TAG Failed to delete native contact [${friend.name}] from ContactsContract")
+                        contactRemovalFailedEvent.postValue(Event(true))
+                    }
+                } else {
+                    Log.w(
+                        "$TAG Native contact [${friend.name}] deletion requires the WRITE_CONTACTS permission"
+                    )
+                    contactRequiresWritePermissionEvent.postValue(Event(true))
+                }
+            }
+        }
+    }
+
+    private fun showPreDialEditor(address: Address, isVideo: Boolean, rawValue: String) {
+        // Normalize the RAW stored string, NOT the Linphone-parsed address
+        // (address parsing applies the account's dial plan and mangles
+        // Iranian prefixes, e.g. 00989121234567 -> +19121234567)
+        val normalized = MyTelNumberNormalizer.normalize(rawValue)
+        val contactName = contact.value?.name?.value.orEmpty()
+        Log.i(
+            "$TAG Showing pre-dial editor for contact [$contactName], raw [$rawValue] normalized to [$normalized]"
+        )
+        showPreDialEditEvent.postValue(
+            Event(PreDialRequest(normalized, contactName, isVideo, address, rawValue))
+        )
+    }
+
+    @UiThread
+    fun callEditedDestination(edited: String, isVideo: Boolean, originalAddress: Address? = null) {
+        coreContext.postOnCoreThread { core ->
+            // Leader correction: preserve the COMPLETE original dialing
+            // context — scheme, port, transport, params and account
+            // selection — by cloning the original address and updating only
+            // the username when the edited value is a plain number. A full
+            // edited SIP URI is interpreted directly. The edited value IS the
+            // destination — no hidden rewrite on call.
+            val address: Address? = if (edited.startsWith("sip:") || edited.contains("@")) {
+                core.interpretUrl(edited, false)
+            } else if (originalAddress != null) {
+                val clone = originalAddress.clone()
+                clone.setUsername(edited)
+                clone
+            } else {
+                val domain = LinphoneUtils.getDefaultAccount()?.params?.domain
+                    ?: corePreferences.defaultDomain
+                core.createAddress("sip:$edited@$domain")
+            }
+            if (address == null) {
+                Log.e("$TAG Failed to create address for edited destination [$edited]")
+                return@postOnCoreThread
+            }
+            Log.i(
+                "$TAG Starting ${if (isVideo) "video" else "audio"} call to edited destination [${address.asStringUriOnly()}]"
+            )
+            if (isVideo) {
+                coreContext.startVideoCall(address)
+            } else {
+                coreContext.startAudioCall(address)
             }
         }
     }
@@ -441,9 +537,17 @@ class ContactViewModel
             val singleAvailableAddress = LinphoneUtils.getSingleAvailableAddressForFriend(friend)
             if (singleAvailableAddress != null) {
                 Log.i(
-                    "$TAG Only 1 SIP address or phone number found for contact [${friend.name}], starting audio call directly"
+                    "$TAG Only 1 SIP address or phone number found for contact [${friend.name}], showing pre-dial editor"
                 )
-                coreContext.startAudioCall(singleAvailableAddress)
+                // Use the RAW stored value (phone number or SIP address) for
+                // normalization, not the dial-plan-parsed address
+                val rawValue = friend.phoneNumbers.firstOrNull()
+                    ?: singleAvailableAddress.asStringUriOnly()
+                showPreDialEditor(
+                    singleAvailableAddress,
+                    isVideo = false,
+                    rawValue = rawValue
+                )
             } else {
                 expectedAction = START_AUDIO_CALL
                 val list = sipAddressesAndPhoneNumbers.value.orEmpty()
