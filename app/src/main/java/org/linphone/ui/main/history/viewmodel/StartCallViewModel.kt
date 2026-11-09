@@ -102,7 +102,8 @@ class StartCallViewModel
     }
 
     init {
-        isNumpadVisible.value = false
+        // MyTel: open the dial pad by default so users can dial directly
+        isNumpadVisible.value = true
         numpadModel = NumpadModel(
             false,
             { digit -> // onDigitClicked
