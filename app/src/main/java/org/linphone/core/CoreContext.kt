@@ -791,6 +791,15 @@ class CoreContext
             core.config.setString("ui", "contacts_filter", "")
             Log.i("$TAG Removed injected linphone.org contacts_filter (excluded third-party domains)")
         }
+        // MyTel: always show only the number/extension, never the full SIP URI
+        if (!core.config.getBool("ui", "only_display_sip_uri_username", false)) {
+            core.config.setBool("ui", "only_display_sip_uri_username", true)
+            Log.i("$TAG Enabled username-only SIP display (MyTel default)")
+        }
+        if (!core.config.getBool("ui", "hide_sip_addresses", false)) {
+            core.config.setBool("ui", "hide_sip_addresses", true)
+            Log.i("$TAG Enabled hide_sip_addresses (MyTel default)")
+        }
         if (migrated > 0) {
             Log.i("$TAG Chat-defaults migration applied to $migrated account(s)")
         }

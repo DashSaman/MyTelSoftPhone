@@ -53,13 +53,9 @@ class ConversationContactOrSuggestionModel
         }
 
     val sipUri = if (!corePreferences.hideSipAddresses) {
-        // Hide SIP address and only show username for suggestions
-        // on the same domain as the currently selected account
-        if (!defaultAccountDomain.isNullOrEmpty() && defaultAccountDomain == address.domain) {
-            address.username
-        } else {
-            address.asStringUriOnly()
-        }
+        // MyTel: always show only the number/extension, never the full
+        // SIP URI (owner requirement: "sip:NUMBER@SERVER" is not wanted)
+        address.username ?: address.asStringUriOnly()
     } else {
         address.username
     }

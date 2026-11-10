@@ -396,11 +396,13 @@ class CorePreferences
 
     @get:AnyThread
     val onlyDisplaySipUriUsername: Boolean
-        get() = config.getBool("ui", "only_display_sip_uri_username", false)
+        // MyTel: always show only the number/extension, never the full SIP URI
+        get() = config.getBool("ui", "only_display_sip_uri_username", true)
 
     @get:AnyThread
     val hideSipAddresses: Boolean
-        get() = config.getBool("ui", "hide_sip_addresses", false)
+        // MyTel: hide SIP address details — show only the number
+        get() = config.getBool("ui", "hide_sip_addresses", true)
 
     @get:AnyThread
     val disableChat: Boolean

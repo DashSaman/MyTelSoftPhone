@@ -53,6 +53,8 @@ imdn_to_everybody_threshold=1
 
 [ui]
 contacts_filter=
+only_display_sip_uri_username=1
+hide_sip_addresses=1
 
 [account_creator]
 url=https://subscribe.linphone.org/api/
