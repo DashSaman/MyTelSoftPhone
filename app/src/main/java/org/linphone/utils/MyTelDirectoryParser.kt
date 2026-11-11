@@ -68,8 +68,9 @@ object MyTelDirectoryParser {
             return Result.Invalid
         }
         val entries = mutableListOf<Entry>()
+        val array: JSONArray
         try {
-            val array = JSONArray(body)
+            array = JSONArray(body)
             for (i in 0 until array.length()) {
                 val item: JSONObject = array.optJSONObject(i) ?: continue
                 val nameValue = item.opt("name") ?: continue
@@ -93,7 +94,18 @@ object MyTelDirectoryParser {
         } catch (e: JSONException) {
             logError("Failed to parse directory body: ${e.message}")
             return Result.Invalid
+        } catch (e: Throwable) {
+            // StackOverflowError from deeply nested JSON or other Errors
+            logError("Directory parse crashed safely: ${e.javaClass.simpleName}")
+            return Result.Invalid
         }
-        return if (entries.isEmpty()) Result.Empty else Result.Success(entries)
+        // A body that produced zero valid entries from non-empty input is
+        // Invalid (malformed), NOT a valid Empty — only a truly empty JSON
+        // array ("[]", "[ ]") is a valid empty directory
+        return if (entries.isEmpty()) {
+            if (array.length() == 0) Result.Empty else Result.Invalid
+        } else {
+            Result.Success(entries)
+        }
     }
 }

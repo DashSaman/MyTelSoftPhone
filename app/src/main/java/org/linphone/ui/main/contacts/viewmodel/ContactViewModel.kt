@@ -471,11 +471,15 @@ class ContactViewModel
         // Iranian prefixes, e.g. 00989121234567 -> +19121234567)
         val normalized = MyTelNumberNormalizer.normalize(rawValue)
         val contactName = contact.value?.name?.value.orEmpty()
+        // Clone the address NOW: the dialog holds it across user delay; the
+        // underlying Friend-owned Address can be freed if the contact is
+        // deleted while the dialog is open (JNI use-after-free prevention)
+        val safeAddress = address.clone()
         Log.i(
             "$TAG Showing pre-dial editor for contact [$contactName], raw [$rawValue] normalized to [$normalized]"
         )
         showPreDialEditEvent.postValue(
-            Event(PreDialRequest(normalized, contactName, isVideo, address, rawValue))
+            Event(PreDialRequest(normalized, contactName, isVideo, safeAddress, rawValue))
         )
     }
 
