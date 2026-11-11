@@ -389,13 +389,6 @@ class MainActivity : GenericActivity() {
             }
         }
 
-        // Owner requirement 2026-11-11: unmistakable connection indicator
-        viewModel.connectionStatus.observe(this) { connected ->
-            Log.i("$TAG Connection status is [${if (connected) "connected" else "disconnected"}]")
-            binding.connectionChip?.visibility = android.view.View.VISIBLE
-            binding.connectionChip?.setState(connected)
-        }
-
         viewModel.showNewAccountToastEvent.observe(this) {
             it.consume {
                 val message = getString(R.string.new_account_configured_toast)

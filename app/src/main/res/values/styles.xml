@@ -260,6 +260,19 @@
         <item name="android:layout_height">@dimen/call_dtmf_button_size</item>
     </style>
 
+    <!-- MyTel: keypad keys of the Start chat dialog (owner requirement
+         2026-11-12: direct extension entry without any contact list) -->
+    <style name="start_chat_key_style">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_columnWeight">1</item>
+        <item name="android:layout_height">52dp</item>
+        <item name="android:layout_margin">4dp</item>
+        <item name="android:gravity">center</item>
+        <item name="android:textSize">22sp</item>
+        <item name="android:textColor">?attr/color_main2_800</item>
+        <item name="android:background">@drawable/squircle_transparent_button_background</item>
+    </style>
+
     <!-- MyTel: rounder Material3 shapes for a softer, modern look -->
     <style name="ShapeAppearance.MyTel.Small" parent="ShapeAppearance.Material3.SmallComponent">
         <item name="cornerSize">12dp</item>

@@ -126,6 +126,15 @@ class ConversationsListFragment : AbstractMainFragment() {
         adapter = ConversationsListAdapter()
     }
 
+    /**
+     * Starts (or reuses) a 1-to-1 conversation with the given remote
+     * address; the created-room event is observed below and opens the
+     * conversation. Called by the Start chat dialog.
+     */
+    fun startOneToOneChatWith(address: org.linphone.core.Address) {
+        listViewModel.createOneToOneChatRoomWith(address)
+    }
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -224,11 +233,11 @@ class ConversationsListFragment : AbstractMainFragment() {
         }
 
         binding.setOnNewConversationClicked {
+            // Owner requirement 2026-11-12: chat starts by typing/dialing the
+            // extension directly - no contact picker in the way
             if (findNavController().currentDestination?.id == R.id.conversationsListFragment) {
-                Log.i("$TAG Navigating to start conversation fragment")
-                val action =
-                    ConversationsListFragmentDirections.actionConversationsListFragmentToStartConversationFragment()
-                findNavController().navigate(action)
+                Log.i("$TAG Opening start-chat-by-extension dialog")
+                StartChatDialogFragment.show(this)
             }
         }
 

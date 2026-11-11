@@ -129,6 +129,14 @@
     <string name="mytel_connection_connected" translatable="false">Online</string>
     <string name="mytel_connection_disconnected" translatable="false">Offline</string>
     <string name="mytel_startup_failed_retry" translatable="false">Startup failed. Tap to retry.</string>
+    <!-- Start chat by extension (owner requirement 2026-11-12) -->
+    <string name="start_chat_title" translatable="false">New chat</string>
+    <string name="start_chat_hint" translatable="false">Extension or number</string>
+    <string name="start_chat_action" translatable="false">Start chat</string>
+    <string name="start_chat_call_action" translatable="false">Call</string>
+    <string name="start_chat_backspace" translatable="false">⌫ Delete</string>
+    <string name="start_chat_invalid_number_toast" translatable="false">Invalid number or extension</string>
+    <string name="start_chat_no_account_toast" translatable="false">No account configured</string>
     <string name="notification_enable_speaker_for_call">Turn on speaker</string>
     <string name="notification_disable_speaker_for_call">Turn off speaker</string>
     <string name="notification_account_registration_error_title">Account %s registration failed!</string>

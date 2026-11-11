@@ -74,10 +74,6 @@ class MainViewModel
 
     val atLeastOneCall = MutableLiveData<Boolean>()
 
-    // Owner requirement 2026-11-11: unmistakable connection indicator —
-    // true when the default account is registered and the network is up
-    val connectionStatus = MutableLiveData<Boolean>()
-
     val callLabel = MutableLiveData<String>()
 
     val callsStatus = MutableLiveData<String>()
@@ -220,7 +216,6 @@ class MainViewModel
             Log.i(
                 "$TAG According to SDK, network is ${if (reachable) "reachable" else "not reachable"}"
             )
-            updateConnectionStatus()
             checkNetworkReachability()
         }
 
@@ -232,8 +227,6 @@ class MainViewModel
             message: String
         ) {
             if (!monitorAccount) return
-
-            updateConnectionStatus()
 
             when (state) {
                 RegistrationState.Failed -> {
@@ -565,23 +558,6 @@ class MainViewModel
                 "$TAG Account monitoring is already [${if (monitorAccount) "enabled" else "disabled"}], nothing to do"
             )
         }
-        if (enable) {
-            coreContext.postOnCoreThread {
-                updateConnectionStatus()
-            }
-        }
-    }
-
-    /**
-     * Owner requirement 2026-11-11: connection indicator state — connected
-     * only when the network is up AND the default account is registered.
-     */
-    @WorkerThread
-    private fun updateConnectionStatus() {
-        val core = coreContext.core
-        val connected = core.isNetworkReachable &&
-            core.defaultAccount?.state == RegistrationState.Ok
-        connectionStatus.postValue(connected)
     }
 
     @WorkerThread
