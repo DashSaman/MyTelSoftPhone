@@ -681,6 +681,25 @@ class CoreContext
         val looper = Looper.myLooper() ?: return
         coreThread = Handler(looper)
 
+        // TEST-ONLY readiness control (leader correction): a settings-global
+        // flag delays core creation so the bounded readiness timeout can be
+        // exercised deterministically. DEBUG builds only — release ignores it.
+        if (BuildConfig.DEBUG) {
+            try {
+                val hold = android.provider.Settings.Global.getInt(
+                    context.contentResolver,
+                    "mytel_hold_core_init",
+                    0
+                )
+                if (hold == 1) {
+                    Log.w("$TAG TEST HOLD active (debug only): delaying core creation by 8s")
+                    Thread.sleep(8000)
+                }
+            } catch (e: Exception) {
+                Log.w("$TAG TEST HOLD flag unreadable: ${e.message}")
+            }
+        }
+
         core = Factory.instance().createCoreWithConfig(corePreferences.config, context)
         core.isAutoIterateEnabled = true
         core.addListener(coreListener)

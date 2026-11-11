@@ -30,10 +30,13 @@ import android.content.res.Configuration
 import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.os.Parcelable
 import android.view.Gravity
 import android.view.ViewTreeObserver
 import android.view.WindowManager
+import android.widget.FrameLayout
 import androidx.activity.SystemBarStyle
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
@@ -59,6 +62,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.linphone.BuildConfig
 import org.linphone.LinphoneApplication.Companion.coreContext
 import org.linphone.LinphoneApplication.Companion.corePreferences
 import org.linphone.R
@@ -71,6 +75,7 @@ import org.linphone.ui.main.chat.fragment.ConversationsListFragmentDirections
 import org.linphone.utils.PasswordDialogModel
 import org.linphone.ui.main.viewmodel.MainViewModel
 import org.linphone.ui.main.viewmodel.SharedMainViewModel
+import org.linphone.ui.main.splash.MyTelIntroOverlay
 import org.linphone.ui.welcome.WelcomeActivity
 import org.linphone.utils.AppUtils
 import org.linphone.utils.DialogUtils
@@ -95,6 +100,13 @@ class MainActivity : GenericActivity() {
 
         const val ARGUMENTS_CHAT = "Chat"
         const val ARGUMENTS_CONVERSATION_ID = "ConversationId"
+
+        // The branded intro overlay plays once per process, only for ordinary
+        // cold launcher openings (GPT-6.1-sol leader decision #2, 2026-11-11)
+        private var introShownThisProcess = false
+
+        // Bounded readiness wait before the retry screen is shown
+        private const val CORE_READY_TIMEOUT_MS = 30_000L
     }
 
     private lateinit var binding: MainActivityBinding
@@ -106,6 +118,33 @@ class MainActivity : GenericActivity() {
     private var currentlyDisplayedAuthDialog: Dialog? = null
 
     private var navigatedToDefaultFragment = false
+
+    private var introOverlay: MyTelIntroOverlay? = null
+
+    // Released only once the core is up and the intro overlay decision has
+    // been applied (or an alternate destination was chosen)
+    @Volatile
+    private var keepSystemSplashVisible = true
+
+    // Non-blocking core readiness wait (leader correction 2026-11-11):
+    // the UI thread must stay responsive for the intro animation and skipping
+    private val coreReadyHandler = Handler(Looper.getMainLooper())
+
+    // onPostCreate may run before the core is ready; the saved state can be
+    // null on a fresh launch, so the deferral needs its own flag
+    private var deferredOnPostCreate = false
+
+    private var deferredOnPostCreateSavedState: Bundle? = null
+
+    // Leader correction 2026-11-11: keep every intent that arrives while the
+    // core is not ready; a single slot silently overwrote earlier arrivals
+    private val pendingIntentsWhileCoreNotReady = mutableListOf<Intent>()
+
+    // Leader correction 2026-11-11 (round 2): an actionable intent (call,
+    // share, dial, shortcut, deep link) must interrupt the running intro and
+    // suppress any pending intro work — including the first-run destination
+    // start, so Welcome/Assistant can never cover an incoming destination
+    private var actionableIntentInterruption = false
 
     private val destinationListener = object : NavController.OnDestinationChangedListener {
         override fun onDestinationChanged(
@@ -176,7 +215,11 @@ class MainActivity : GenericActivity() {
     @SuppressLint("InlinedApi")
     override fun onCreate(savedInstanceState: Bundle?) {
         // Must be done before the setContentView
-        installSplashScreen()
+        val splashScreen = installSplashScreen()
+        // Keep the system splash visible until the core is up AND the intro
+        // decision has been made, so nothing (fragments included) inflates
+        // before the core exists and the first frame matches the splash
+        splashScreen.setKeepOnScreenCondition { keepSystemSplashVisible }
 
         val sw600dpLand = resources.configuration.smallestScreenWidthDp >= 600 &&
                 resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
@@ -194,6 +237,82 @@ class MainActivity : GenericActivity() {
 
         super.onCreate(savedInstanceState)
 
+        // Leader correction 2026-11-11: never block the UI thread waiting for
+        // the core — keep the system splash on screen and poll from the main
+        // looper instead; content view, fragments and models are only created
+        // once the core is ready
+        if (coreContext.isReady()) {
+            onCoreReady()
+        } else {
+            Log.i("$TAG Core not ready yet, deferring initialization without blocking the UI thread")
+            val startedAt = android.os.SystemClock.elapsedRealtime()
+            val pollUntilCoreReady: Runnable = object : Runnable {
+                override fun run() {
+                    if (isDestroyed || isFinishing) {
+                        Log.w("$TAG Activity destroyed while waiting for the core, giving up")
+                        return
+                    }
+                    if (coreContext.isReady()) {
+                        onCoreReady()
+                    } else if (android.os.SystemClock.elapsedRealtime() - startedAt > coreReadyTimeoutMs()) {
+                        // Leader correction 2026-11-11: bounded readiness —
+                        // never keep the system splash up indefinitely
+                        onCoreReadyTimedOut()
+                    } else {
+                        coreReadyHandler.postDelayed(this, 50)
+                    }
+                }
+            }
+            coreReadyHandler.post(pollUntilCoreReady)
+        }
+    }
+
+    /**
+     * Production always uses the fixed [CORE_READY_TIMEOUT_MS] deadline. The
+     * settings-global override exists ONLY in debug builds for the
+     * deterministic timeout test (leader correction: release must ignore it).
+     */
+    private fun coreReadyTimeoutMs(): Long {
+        if (!BuildConfig.DEBUG) return CORE_READY_TIMEOUT_MS
+        val effective = try {
+            android.provider.Settings.Global.getLong(
+                contentResolver,
+                "mytel_core_ready_timeout",
+                CORE_READY_TIMEOUT_MS
+            )
+        } catch (e: Exception) {
+            CORE_READY_TIMEOUT_MS
+        }
+        Log.i("$TAG Core-ready timeout (debug override): [$effective] ms")
+        return effective
+    }
+
+    /**
+     * Bounded readiness failure (leader correction 2026-11-11): release the
+     * held splash and offer a retry instead of waiting forever.
+     */
+    private fun onCoreReadyTimedOut() {
+        Log.e("$TAG Core was not ready within [$CORE_READY_TIMEOUT_MS] ms, giving up")
+        keepSystemSplashVisible = false
+        val retry = android.widget.TextView(this).apply {
+            text = getString(R.string.mytel_startup_failed_retry)
+            setTextColor(0xFFE8F1FC.toInt())
+            setBackgroundColor(0xFF001622.toInt())
+            textSize = 16f
+            gravity = android.view.Gravity.CENTER
+            setOnClickListener {
+                Log.i("$TAG Retry requested after startup timeout, restarting process")
+                val restart = packageManager.getLaunchIntentForPackage(packageName)
+                restart?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                startActivity(restart)
+                android.os.Process.killProcess(android.os.Process.myPid())
+            }
+        }
+        setContentView(retry)
+    }
+
+    private fun onCoreReady() {
+        Log.i("$TAG Core is ready, creating content view and models")
         binding = DataBindingUtil.setContentView(this, R.layout.main_activity)
         binding.lifecycleOwner = this
         setUpToastsArea(binding.toastsArea)
@@ -216,10 +335,6 @@ class MainActivity : GenericActivity() {
             val insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
             v.updatePadding(insets.left, insets.top, insets.right, insets.bottom)
             WindowInsetsCompat.CONSUMED
-        }
-
-        while (!coreContext.isReady()) {
-            Thread.sleep(50)
         }
 
         viewModel = run {
@@ -272,6 +387,13 @@ class MainActivity : GenericActivity() {
                 Log.w("$TAG Asking for ACCESS_LOCAL_NETWORK permission")
                 accessLocalNetworkPermissionLauncher.launch(Manifest.permission.ACCESS_LOCAL_NETWORK)
             }
+        }
+
+        // Owner requirement 2026-11-11: unmistakable connection indicator
+        viewModel.connectionStatus.observe(this) { connected ->
+            Log.i("$TAG Connection status is [${if (connected) "connected" else "disconnected"}]")
+            binding.connectionChip?.visibility = android.view.View.VISIBLE
+            binding.connectionChip?.setState(connected)
         }
 
         viewModel.showNewAccountToastEvent.observe(this) {
@@ -432,32 +554,185 @@ class MainActivity : GenericActivity() {
         }
 
         coreContext.postOnCoreThread { core ->
-            if (corePreferences.firstLaunch) {
-                Log.i("$TAG First time Linphone 6.0 has been started, showing Welcome activity")
-                corePreferences.firstLaunch = false
-                coreContext.postOnMainThread {
-                    try {
-                        startActivity(Intent(this, WelcomeActivity::class.java))
-                    } catch (ise: IllegalStateException) {
-                        Log.e("$TAG Can't start activity: $ise")
+            // Leader correction 2026-11-11 (round 2): drain queued actionable
+            // intents BEFORE the intro decision so a destination that arrived
+            // during the readiness wait interrupts/suppresses the intro
+            val firstRunDestination: Class<*>? = when {
+                corePreferences.firstLaunch -> {
+                    Log.i("$TAG First time Linphone 6.0 has been started, showing Welcome activity after the intro")
+                    corePreferences.firstLaunch = false
+                    WelcomeActivity::class.java
+                }
+                core.accountList.isEmpty() -> {
+                    Log.w("$TAG No account found, showing Assistant activity after the intro")
+                    AssistantActivity::class.java
+                }
+                else -> null
+            }
+            coreContext.postOnMainThread {
+                // Drain queued intents first; handleIntent marks the
+                // interruption flag for anything actionable
+                if (pendingIntentsWhileCoreNotReady.isNotEmpty()) {
+                    val pending = pendingIntentsWhileCoreNotReady.toList()
+                    pendingIntentsWhileCoreNotReady.clear()
+                    Log.i("$TAG Draining [${pending.size}] queued intent(s) before intro decision")
+                    for (pendingIntent in pending) {
+                        if (isActionableIntent(pendingIntent)) {
+                            markIntroInterruption()
+                        }
+                        handleIntent(pendingIntent)
                     }
                 }
-            } else if (core.accountList.isEmpty()) {
-                Log.w("$TAG No account found, showing Assistant activity")
-                coreContext.postOnMainThread {
-                    try {
-                        startActivity(Intent(this, AssistantActivity::class.java))
-                    } catch (ise: IllegalStateException) {
-                        Log.e("$TAG Can't start activity: $ise")
-                    }
+                if (actionableIntentInterruption) {
+                    // The actionable destination wins: no intro and no
+                    // first-run destination may cover it
+                    Log.i("$TAG Actionable intent interruption recorded, suppressing intro and first-run destination")
+                    showMyTelIntroIfNeeded(null, suppressed = true)
+                } else if (firstRunDestination != null) {
+                    showMyTelIntroIfNeeded(afterIntro = {
+                        // Cancellation-aware: an actionable intent arriving
+                        // while the intro plays cancels the destination start
+                        if (actionableIntentInterruption) {
+                            Log.i("$TAG Intro destination cancelled by actionable intent")
+                            return@showMyTelIntroIfNeeded
+                        }
+                        try {
+                            startActivity(Intent(this, firstRunDestination))
+                        } catch (ise: IllegalStateException) {
+                            Log.e("$TAG Can't start activity: $ise")
+                        }
+                    })
+                } else {
+                    showMyTelIntroIfNeeded()
                 }
             }
         }
+
+        // If onPostCreate ran before the core was ready, catch up now
+        if (deferredOnPostCreate) {
+            deferredOnPostCreate = false
+            val deferredSavedState = deferredOnPostCreateSavedState
+            deferredOnPostCreateSavedState = null
+            Log.i("$TAG Core is now ready, running deferred onPostCreate tasks")
+            runOnPostCreateTasks(deferredSavedState)
+        }
+        if (pendingIntentsWhileCoreNotReady.isNotEmpty()) {
+            val pending = pendingIntentsWhileCoreNotReady.toList()
+            pendingIntentsWhileCoreNotReady.clear()
+            Log.i("$TAG Core is now ready, handling [${pending.size}] intent(s) that arrived earlier (post-intro leftovers)")
+            for (pendingIntent in pending) {
+                handleIntent(pendingIntent)
+            }
+        }
+
+        // If the activity was already resumed while the core was not ready,
+        // perform the onResume initialization that was skipped (leader
+        // correction 2026-11-11)
+        if (lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)) {
+            Log.i("$TAG Activity already resumed, catching up on onResume tasks")
+            runOnResumeTasks()
+        }
+    }
+
+    /** An intent that carries a destination (share, dial, view, call...). */
+    private fun isActionableIntent(candidate: Intent?): Boolean {
+        if (candidate == null) return false
+        val plainLauncher = candidate.action == Intent.ACTION_MAIN &&
+            candidate.hasCategory(Intent.CATEGORY_LAUNCHER) &&
+            candidate.extras == null
+        return !plainLauncher
+    }
+
+    /** Records an actionable-intent interruption of the intro flow. */
+    private fun markIntroInterruption() {
+        if (!actionableIntentInterruption) {
+            Log.i("$TAG Actionable intent interruption recorded, dismissing/suppressing intro")
+            actionableIntentInterruption = true
+        }
+        introOverlay?.skip()
+    }
+
+    /**
+     * Shows the MyTel branded intro overlay for an ordinary cold launcher
+     * opening (leader decisions #1/#2, 2026-11-11). Bypassed for actionable
+     * intents (calls, shares, shortcuts, history relaunch) and only ever
+     * shown once per process. Every bypass path releases the held system
+     * splash (leader correction 2026-11-11: recreation after a completed
+     * intro must never leave the splash stuck). [afterIntro] runs once the
+     * intro is gone (or immediately when no intro is shown) and is used to
+     * open the first-run destination after the intro; it must re-check
+     * [actionableIntentInterruption] itself (cancellation-aware).
+     */
+    private fun showMyTelIntroIfNeeded(afterIntro: (() -> Unit)? = null, suppressed: Boolean = false) {
+        if (suppressed || actionableIntentInterruption) {
+            introShownThisProcess = true
+            keepSystemSplashVisible = false
+            return
+        }
+        if (introShownThisProcess) {
+            // Already played in this process (e.g. activity recreation):
+            // never hold the system splash again
+            keepSystemSplashVisible = false
+            afterIntro?.invoke()
+            return
+        }
+        // Consume the once-per-process slot even when conditions aren't met
+        // so the intro never plays later by surprise
+        introShownThisProcess = true
+
+        val launcherIntent = intent
+        val isOrdinaryLauncherOpening = launcherIntent != null &&
+            launcherIntent.action == Intent.ACTION_MAIN &&
+            launcherIntent.hasCategory(Intent.CATEGORY_LAUNCHER) &&
+            launcherIntent.extras == null &&
+            (launcherIntent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY) == 0
+        if (!isOrdinaryLauncherOpening) {
+            Log.i("$TAG Not an ordinary cold launcher opening, skipping intro overlay")
+            keepSystemSplashVisible = false
+            afterIntro?.invoke()
+            return
+        }
+
+        Log.i("$TAG Showing MyTel intro overlay")
+        val overlay = MyTelIntroOverlay(this)
+        val root = binding.root as android.view.ViewGroup
+        overlay.onFinished = {
+            root.removeView(overlay)
+            if (introOverlay === overlay) {
+                introOverlay = null
+            }
+            keepSystemSplashVisible = false
+            afterIntro?.invoke()
+        }
+        root.addView(
+            overlay,
+            FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            )
+        )
+        introOverlay = overlay
+        overlay.start()
+
+        // The intro overlay's first frame (badge on navy, matching the
+        // system splash) can now replace the system splash seamlessly
+        keepSystemSplashVisible = false
     }
 
     override fun onPostCreate(savedInstanceState: Bundle?) {
         super.onPostCreate(savedInstanceState)
 
+        if (!::viewModel.isInitialized) {
+            Log.i("$TAG Core not ready yet, deferring onPostCreate tasks")
+            deferredOnPostCreate = true
+            deferredOnPostCreateSavedState = savedInstanceState
+            return
+        }
+
+        runOnPostCreateTasks(savedInstanceState)
+    }
+
+    private fun runOnPostCreateTasks(savedInstanceState: Bundle?) {
         goToLatestVisitedFragment()
 
         // We don't want that intent to be handled upon rotation
@@ -475,6 +750,16 @@ class MainActivity : GenericActivity() {
     }
 
     override fun onPause() {
+        // Anything taking over the screen (incoming call activity, etc.)
+        // immediately dismisses the intro overlay (leader decision #2)
+        introOverlay?.skip()
+
+        if (!::viewModel.isInitialized) {
+            Log.w("$TAG Core not ready yet, skipping onPause tasks")
+            super.onPause()
+            return
+        }
+
         viewModel.enableAccountMonitoring(false)
 
         currentlyDisplayedAuthDialog?.dismiss()
@@ -508,6 +793,15 @@ class MainActivity : GenericActivity() {
     override fun onResume() {
         super.onResume()
 
+        if (!::viewModel.isInitialized) {
+            Log.w("$TAG Core not ready yet, skipping onResume tasks")
+            return
+        }
+
+        runOnResumeTasks()
+    }
+
+    private fun runOnResumeTasks() {
         viewModel.enableAccountMonitoring(true)
         viewModel.updateMissingPermissionAlert()
         viewModel.updateAccountsAndNetworkReachability()
@@ -516,7 +810,22 @@ class MainActivity : GenericActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         Log.d("$TAG Handling new intent")
+        // Leader correction (round 2): actionable intents interrupt the
+        // intro BEFORE any handling, so the destination is never covered
+        if (isActionableIntent(intent)) {
+            markIntroInterruption()
+        }
+        if (!::viewModel.isInitialized) {
+            Log.i("$TAG Core not ready yet, deferring new intent handling")
+            pendingIntentsWhileCoreNotReady.add(intent)
+            return
+        }
         handleIntent(intent)
+    }
+
+    override fun onDestroy() {
+        coreReadyHandler.removeCallbacksAndMessages(null)
+        super.onDestroy()
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {

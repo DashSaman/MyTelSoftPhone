@@ -30,6 +30,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.media.AudioAttributes
 import android.media.MediaPlayer
 import android.net.Uri
@@ -1893,9 +1894,17 @@ class NotificationsManager
             }
 
             val builder = NotificationCompat.Builder(context, channelId)
-                .setSmallIcon(R.drawable.linphone_notification)
-                .setContentText(AppUtils.getString(R.string.notification_keep_app_alive_description))
-                .setSubText(AppUtils.getString(R.string.notification_keep_app_alive_message))
+                // Owner requirement 2026-11-11: MyTel brand icon + "Mytel" title
+                // with the Persian running-state line below it
+                .setSmallIcon(R.drawable.mytel_launcher_monochrome)
+                .setLargeIcon(
+                    BitmapFactory.decodeResource(
+                        context.resources,
+                        R.drawable.mytel_logo_badge
+                    )
+                )
+                .setContentTitle(AppUtils.getString(R.string.mytel_notification_title))
+                .setContentText(AppUtils.getString(R.string.mytel_keep_alive_notification_text))
                 .setAutoCancel(false)
                 .setOngoing(true)
                 .setCategory(NotificationCompat.CATEGORY_SERVICE)

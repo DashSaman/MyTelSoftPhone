@@ -62,6 +62,10 @@ class ContactAvatarModel
 
     val name = MutableLiveData<String>()
 
+    // Owner requirement 2026-11-11: peer number/extension displayed beside
+    // the contact name in chat and history lists ("Name (123)")
+    val nameWithNumber = MutableLiveData<String>()
+
     var sortingName: String? = null
 
     var firstLetter: String? = null
@@ -135,7 +139,20 @@ class ContactAvatarModel
         picturePath.postValue(getAvatarUri(friend).toString())
 
         name.postValue(friend.name)
+        nameWithNumber.postValue(computeNameWithNumber(address))
         computePresence(address)
+    }
+
+    @WorkerThread
+    private fun computeNameWithNumber(address: Address?): String {
+        val displayName = friend.name.orEmpty()
+        val addressToUse = address ?: this.address ?: friend.addresses.firstOrNull()
+        val username = addressToUse?.username.orEmpty()
+        return when {
+            displayName.isEmpty() -> username
+            username.isEmpty() || username == displayName -> displayName
+            else -> "$displayName ($username)"
+        }
     }
 
     @WorkerThread

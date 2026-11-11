@@ -117,6 +117,18 @@
     <string name="notification_file_transfer_upload_download_message" translatable="false">%s, %s</string>
     <string name="notification_keep_app_alive_message">Click to open</string>
     <string name="notification_keep_app_alive_description">This notification keeps app alive while in background</string>
+    <!-- Owner requirement 2026-11-11: persistent service notification shows the
+         MyTel brand as English title with a Persian running-state line below -->
+    <string name="mytel_notification_title" translatable="false">Mytel</string>
+    <string name="mytel_keep_alive_notification_text" translatable="false">تلفن هوشمند من در حال اجراست</string>
+    <!-- Animated intro overlay (owner requirement 2026-11-11) -->
+    <string name="mytel_intro_accessibility_description" translatable="false">Mytell opening animation, double tap to skip</string>
+    <string name="mytel_intro_skip_action_label" translatable="false">Skip animation</string>
+    <!-- Owner requirement 2026-11-11 (revised same day): unmistakable
+     connection indicator with English Online/Offline labels -->
+    <string name="mytel_connection_connected" translatable="false">Online</string>
+    <string name="mytel_connection_disconnected" translatable="false">Offline</string>
+    <string name="mytel_startup_failed_retry" translatable="false">Startup failed. Tap to retry.</string>
     <string name="notification_enable_speaker_for_call">Turn on speaker</string>
     <string name="notification_disable_speaker_for_call">Turn off speaker</string>
     <string name="notification_account_registration_error_title">Account %s registration failed!</string>

@@ -58,7 +58,7 @@
             android:layout_marginStart="10dp"
             android:maxLines="1"
             android:ellipsize="end"
-            android:text="@{model.isGroup ? model.subject : model.avatarModel.name, default=`John Doe`}"
+            android:text="@{model.isGroup ? model.subject : model.avatarModel.nameWithNumber, default=`John Doe (201)`}"
             android:textSize="14sp"
             android:textColor="?attr/color_main2_800"
             textFont="@{model.unreadMessageCount > 0 ? NotoSansFont.NotoSansExtraBold : NotoSansFont.NotoSansMedium}"
