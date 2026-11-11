@@ -1446,9 +1446,13 @@ class CoreContext
         core.useRfc2833ForDtmf = true
         core.useInfoForDtmf = true
 
-        // Add that flag back, was disabled for a time during dev process
-        Log.i("$TAG Enabling hiding empty chat rooms")
-        core.config.setBool("misc", "hide_empty_chat_rooms", true)
+        // MyTel (leader correction 2026-11-12): outgoing-only basic-room
+        // messages can be absent from the DB until a remote event arrives,
+        // which made hide_empty_chat_rooms swallow the conversation.
+        // Keep rooms visible so the history (in memory at minimum) and
+        // the room identity survive restarts without a reply.
+        Log.i("$TAG Disabling hiding of empty chat rooms (MyTel: outgoing-only rooms must stay visible)")
+        core.config.setBool("misc", "hide_empty_chat_rooms", false)
 
         // Replace old URLs by new ones
         if (corePreferences.checkForUpdateServerUrl == "https://www.linphone.org/releases") {

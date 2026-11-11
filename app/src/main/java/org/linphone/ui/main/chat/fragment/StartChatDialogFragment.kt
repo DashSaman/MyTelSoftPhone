@@ -134,35 +134,43 @@ class StartChatDialogFragment : AppCompatDialogFragment() {
             showRedToast(R.string.start_chat_no_account_toast)
             return
         }
-        val core = coreContext.core
-        val address: Address? = if (raw.startsWith("sip:", ignoreCase = true)) {
-            // Explicit SIP URI: interpret as-is through the SDK
-            core.interpretUrl(raw)
-        } else {
-            // Telephone/extension input: normalize Iranian formats first
-            // (extensions and leading zeros preserved), then let the SDK
-            // interpret against the default account
-            val normalized = MyTelNumberNormalizer.normalize(raw)
-            core.interpretUrl(normalized)
-        }
-        if (address == null) {
-            Log.w("$TAG Could not interpret [$raw] as a valid destination")
-            showRedToast(R.string.start_chat_invalid_number_toast)
-            return
-        }
 
-        Log.i(
-            "$TAG ${if (chat) "Chat" else "Call"} requested with [$raw] -> [${address.asStringUriOnly()}]"
-        )
         dismissAllowingStateLoss()
-        if (chat) {
-            // Reuses the existing one-to-one basic-chat helper; the created
-            // room event is already observed by the parent and opens the
-            // conversation. An existing room for the same identities is
-            // reused by the helper itself.
-            parent.startOneToOneChatWith(address)
-        } else {
-            coreContext.postOnCoreThread {
+
+        // Leader correction 2026-11-12: serialize account resolution,
+        // address interpretation and room creation through the core
+        // thread; UI feedback (toast) hops back to the main thread
+        coreContext.postOnCoreThread { core ->
+            val address: Address? = if (raw.startsWith("sip:", ignoreCase = true)) {
+                // Explicit SIP URI: interpret as-is through the SDK
+                core.interpretUrl(raw)
+            } else {
+                // Telephone/extension input: normalize Iranian formats first
+                // (extensions and leading zeros preserved), then let the SDK
+                // interpret against the default account
+                val normalized = MyTelNumberNormalizer.normalize(raw)
+                core.interpretUrl(normalized)
+            }
+            if (address == null) {
+                Log.w("$TAG Could not interpret [$raw] as a valid destination")
+                android.os.Handler(android.os.Looper.getMainLooper()).post {
+                    showRedToast(R.string.start_chat_invalid_number_toast)
+                }
+                return@postOnCoreThread
+            }
+
+            Log.i(
+                "$TAG ${if (chat) "Chat" else "Call"} requested with [$raw] -> [${address.asStringUriOnly()}]"
+            )
+            if (chat) {
+                // Reuses the existing one-to-one basic-chat helper; the
+                // created room event is already observed by the parent and
+                // opens the conversation; an existing room for the same
+                // identities is reused by the helper itself.
+                coreContext.postOnMainThread {
+                    parent.startOneToOneChatWith(address.clone())
+                }
+            } else {
                 coreContext.startCall(address)
             }
         }

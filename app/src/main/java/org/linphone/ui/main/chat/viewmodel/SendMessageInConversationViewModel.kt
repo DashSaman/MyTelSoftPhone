@@ -320,13 +320,21 @@ class SendMessageInConversationViewModel
                 chatRoom.createReplyMessage(messageToReplyTo)
             } else if (messageToEdit != null) {
                 chatRoom.createReplacesMessage(messageToEdit)
+            } else if (textToSend.value.orEmpty().trim().isNotEmpty() &&
+                       attachments.value.orEmpty().isEmpty() &&
+                       isVoiceRecording.value != true
+            ) {
+                // Plain-text fast path: createMessage marks the message
+                // to-be-stored so outgoing-only history persists (leader
+                // correction 2026-11-12)
+                chatRoom.createMessage(textToSend.value.orEmpty().trim())
             } else {
                 chatRoom.createEmptyMessage()
             }
             var contentAdded = false
 
             val toSend = textToSend.value.orEmpty().trim()
-            if (toSend.isNotEmpty()) {
+            if (toSend.isNotEmpty() && message.contents.isEmpty()) {
                 message.addUtf8TextContent(toSend)
                 contentAdded = true
             }
@@ -341,6 +349,7 @@ class SendMessageInConversationViewModel
                     if (isBasicChatRoom && contentAdded) {
                         val voiceMessage = chatRoom.createEmptyMessage()
                         voiceMessage.addContent(content)
+                        voiceMessage.toBeStored = true
                         voiceMessage.send()
                         messageSentEvent.postValue(Event(voiceMessage))
                     } else {
@@ -373,6 +382,7 @@ class SendMessageInConversationViewModel
                     if (isBasicChatRoom && contentAdded) {
                         val fileMessage = chatRoom.createEmptyMessage()
                         fileMessage.addFileContent(content)
+                        fileMessage.toBeStored = true
                         fileMessage.send()
                         messageSentEvent.postValue(Event(fileMessage))
                     } else {
@@ -384,6 +394,12 @@ class SendMessageInConversationViewModel
 
             if (message.contents.isNotEmpty()) {
                 Log.i("$TAG Sending message")
+                // Outgoing-only basic-room messages can be dropped from the
+                // DB when the default to-be-stored computation declines;
+                // set it explicitly (supported SDK mechanism) so history
+                // persists without requiring a reply first (leader
+                // correction 2026-11-12)
+                message.toBeStored = true
                 message.send()
                 messageSentEvent.postValue(Event(message))
             }

@@ -261,7 +261,7 @@ class ConversationsListViewModel
             return
         }
 
-        val hideEmptyChatRooms = coreContext.core.config.getBool("misc", "hide_empty_chat_rooms", true)
+        val hideEmptyChatRooms = coreContext.core.config.getBool("misc", "hide_empty_chat_rooms", false)
         // Hide empty chat rooms only applies to 1-1 conversations
         if (hideEmptyChatRooms && !LinphoneUtils.isChatRoomAGroup(chatRoom) && chatRoom.lastMessageInHistory == null) {
             Log.w("$TAG Chat room with identifier [$identifier] is empty, not adding it to match Core setting")
