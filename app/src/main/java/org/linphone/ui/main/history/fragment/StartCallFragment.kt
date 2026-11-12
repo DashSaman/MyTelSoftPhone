@@ -58,7 +58,11 @@ class StartCallFragment : GenericAddressPickerFragment() {
     private val bottomSheetCallback = object : BottomSheetBehavior.BottomSheetCallback() {
         override fun onStateChanged(bottomSheet: View, newState: Int) {
             if (newState == BottomSheetBehavior.STATE_COLLAPSED || newState == BottomSheetBehavior.STATE_HIDDEN) {
-                viewModel.isNumpadVisible.value = false
+                // Owner requirement: dial pad is always the primary view;
+                // force it back to expanded if anything tries to collapse it
+                bottomSheet.post {
+                    BottomSheetBehavior.from(bottomSheet).state = BottomSheetBehavior.STATE_EXPANDED
+                }
             }
         }
 
@@ -176,15 +180,19 @@ class StartCallFragment : GenericAddressPickerFragment() {
         }
 
         val bottomSheetBehavior = BottomSheetBehavior.from(binding.numpadLayout.root)
-        bottomSheetBehavior.state = BottomSheetBehavior.STATE_COLLAPSED
+        // Owner requirement (2026-11-12): the dial pad IS the interface —
+        // expanded, non-hideable, covering the contact list entirely;
+        // behaves like a classic phone dialer
+        bottomSheetBehavior.state = BottomSheetBehavior.STATE_EXPANDED
+        bottomSheetBehavior.isHideable = false
+        bottomSheetBehavior.skipCollapsed = true
         bottomSheetBehavior.addBottomSheetCallback(bottomSheetCallback)
 
         viewModel.isNumpadVisible.observe(viewLifecycleOwner) { visible ->
             if (visible) {
                 bottomSheetBehavior.state = BottomSheetBehavior.STATE_EXPANDED
-            } else {
-                bottomSheetBehavior.state = BottomSheetBehavior.STATE_COLLAPSED
             }
+            // Never collapse — the dial pad is the primary interface
         }
 
         viewModel.defaultAccountChangedEvent.observe(viewLifecycleOwner) {
