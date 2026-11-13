@@ -310,11 +310,11 @@ class HistoryListFragment : AbstractMainFragment() {
         }
 
         binding.setStartCallClickListener {
+            // Owner requirement 2026-11-13: instant dialer — lightweight
+            // dialog instead of the heavy StartCallFragment navigation
             if (findNavController().currentDestination?.id == R.id.historyListFragment) {
-                Log.i("$TAG Navigating to start call fragment")
-                val action =
-                    HistoryListFragmentDirections.actionHistoryListFragmentToStartCallFragment()
-                findNavController().navigate(action)
+                Log.i("$TAG Opening instant call dialer dialog")
+                StartCallDialogFragment.show(this)
             }
         }
 

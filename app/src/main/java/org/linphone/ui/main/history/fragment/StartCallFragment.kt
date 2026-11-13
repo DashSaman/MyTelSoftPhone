@@ -57,13 +57,8 @@ class StartCallFragment : GenericAddressPickerFragment() {
 
     private val bottomSheetCallback = object : BottomSheetBehavior.BottomSheetCallback() {
         override fun onStateChanged(bottomSheet: View, newState: Int) {
-            if (newState == BottomSheetBehavior.STATE_COLLAPSED || newState == BottomSheetBehavior.STATE_HIDDEN) {
-                // Owner requirement: dial pad is always the primary view;
-                // force it back to expanded if anything tries to collapse it
-                bottomSheet.post {
-                    BottomSheetBehavior.from(bottomSheet).state = BottomSheetBehavior.STATE_EXPANDED
-                }
-            }
+            // No-op: isHideable=false + skipCollapsed=true already prevent
+            // collapsing. Re-expanding here caused a layout loop and ~3s lag.
         }
 
         override fun onSlide(bottomSheet: View, slideOffset: Float) { }
