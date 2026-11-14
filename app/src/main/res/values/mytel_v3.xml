@@ -7,4 +7,7 @@
     <string translatable="false" name="mytel_clear_number">Clear number</string>
     <string translatable="false" name="mytel_dialer_caption">Enter an extension or phone number</string>
     <string translatable="false" name="mytel_message_send_failed">Could not send the message. Your draft has been kept; please try again.</string>
+    <string translatable="false" name="mytel_attachment_service_destination">Files are shared through %1$s</string>
+    <string translatable="false" name="mytel_attachment_configured_service">your configured file service</string>
+    <string translatable="false" name="mytel_attachment_settings_label">Attachment service URL (optional)\nConfigure a file service for photos, files and voice messages. Text chat works without it.</string>
 </resources>

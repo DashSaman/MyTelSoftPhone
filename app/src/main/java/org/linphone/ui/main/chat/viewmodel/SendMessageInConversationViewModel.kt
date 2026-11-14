@@ -55,6 +55,7 @@ import org.linphone.ui.main.chat.model.FileModel
 import org.linphone.ui.main.chat.model.MessageModel
 import org.linphone.ui.main.chat.model.ParticipantModel
 import org.linphone.utils.AudioUtils
+import org.linphone.utils.AppUtils
 import org.linphone.utils.Event
 import org.linphone.utils.FileUtils
 import org.linphone.utils.LinphoneUtils
@@ -73,6 +74,8 @@ class SendMessageInConversationViewModel
     private val sending = AtomicBoolean(false)
 
     val isFileTransferServerAvailable = MutableLiveData<Boolean>()
+
+    val fileTransferServiceDescription = MutableLiveData<String>()
 
     val isEmojiPickerOpen = MutableLiveData<Boolean>()
 
@@ -174,6 +177,15 @@ class SendMessageInConversationViewModel
     init {
         coreContext.postOnCoreThread { core ->
             isFileTransferServerAvailable.postValue(!core.fileTransferServer.isNullOrEmpty())
+            val serviceHost = try {
+                java.net.URI(core.fileTransferServer.orEmpty()).host.orEmpty()
+            } catch (_: java.net.URISyntaxException) {
+                ""
+            }
+            // Show the destination without exposing credentials, query tokens or file paths.
+            fileTransferServiceDescription.postValue(
+                AppUtils.getFormattedString(R.string.mytel_attachment_service_destination, serviceHost.ifBlank { AppUtils.getString(R.string.mytel_attachment_configured_service) })
+            )
         }
 
         isKeyboardOpen.value = false

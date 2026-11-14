@@ -80,6 +80,20 @@
             bind:openCameraClickListener="@{openCameraClickListener}"
             bind:openFilePickerClickListener="@{openFilePickerClickListener}" />
 
+        <androidx.appcompat.widget.AppCompatTextView
+            style="@style/default_text_style"
+            android:id="@+id/file_service_destination"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="16dp"
+            android:paddingBottom="8dp"
+            android:textSize="12sp"
+            android:text="@{viewModel.fileTransferServiceDescription}"
+            android:visibility="@{viewModel.isFileTransferServerAvailable &amp;&amp; (viewModel.areFilePickersOpen || viewModel.isFileAttachmentsListOpen || viewModel.isVoiceRecording) ? View.VISIBLE : View.GONE, default=gone}"
+            app:layout_constraintTop_toBottomOf="@id/file_pickers"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
+
         <include
             android:id="@+id/participants"
             layout="@layout/chat_conversation_participants_area"
@@ -87,14 +101,14 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:visibility="@{viewModel.isParticipantsListOpen ? View.VISIBLE : View.GONE, default=gone}"
-            app:layout_constraintTop_toBottomOf="@id/file_pickers" />
+            app:layout_constraintTop_toBottomOf="@id/file_service_destination" />
 
         <androidx.constraintlayout.widget.Barrier
             android:id="@+id/top_barrier"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             app:barrierDirection="bottom"
-            app:constraint_referenced_ids="file_pickers, emoji_picker, participants, attachments, reply_area" />
+            app:constraint_referenced_ids="file_service_destination, file_pickers, emoji_picker, participants, attachments, reply_area" />
 
         <ImageView
             android:id="@+id/emoji_picker_toggle"
