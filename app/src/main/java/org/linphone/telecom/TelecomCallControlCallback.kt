@@ -24,8 +24,7 @@ import androidx.annotation.WorkerThread
 import androidx.core.telecom.CallAttributesCompat
 import androidx.core.telecom.CallControlResult
 import androidx.core.telecom.CallControlScope
-import androidx.core.telecom.CallEndpointCompat
-import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
@@ -38,214 +37,159 @@ import org.linphone.core.tools.Log
 import org.linphone.utils.AudioUtils
 import org.linphone.utils.Event
 import org.linphone.utils.LinphoneUtils
+import org.linphone.utils.MyTelTelecomSessions
+import java.util.concurrent.atomic.AtomicBoolean
 
 class TelecomCallControlCallback(
     private val call: Call,
-    private val callControl: CallControlScope,
-    private val scope: CoroutineScope
+    private val callControl: CallControlScope
 ) {
     companion object {
         private const val TAG = "[Telecom Call Control Callback]"
     }
 
+    private val closed = AtomicBoolean(false)
+    private val connectionSynchronized = AtomicBoolean(false)
+    private var listenerAttached = false
     private var mutedByTelecomManager = false
 
     private val callListener = object : CallListenerStub() {
         @WorkerThread
         override fun onStateChanged(call: Call, state: Call.State?, message: String) {
-            Log.i("$TAG Call [${call.remoteAddress.asStringUriOnly()}] state changed [$state]")
-            if (state == Call.State.Connected) {
-                if (call.dir == Call.Dir.Incoming) {
-                    answerCall()
-                } else {
-                    scope.launch {
-                        Log.i("$TAG Setting call active")
-                        val result = callControl.setActive()
-                        if (result is CallControlResult.Error) {
-                            Log.e("$TAG Failed to set call control active: $result")
-                        }
-                    }
-                }
-            } else if (state == Call.State.End) {
-                callEnded()
-            } else if (state == Call.State.Error) {
-                callError(message)
-            } else if (state == Call.State.Pausing) {
-                scope.launch {
-                    Log.i("$TAG Pausing call")
-                    val result = callControl.setInactive()
-                    if (result is CallControlResult.Error) {
-                        Log.e("$TAG Failed to set call control inactive: $result")
-                    }
-                }
-            } else if (state == Call.State.Resuming) {
-                scope.launch {
-                    Log.i("$TAG Resuming call")
-                    val result = callControl.setActive()
-                    if (result is CallControlResult.Error) {
-                        Log.e("$TAG Failed to set call control active: $result")
-                    }
-                }
-            }
-        }
-    }
-
-    init {
-        // NEVER CALL ANY METHOD FROM callControl OBJECT IN HERE!
-        Log.i("$TAG Created callback for call")
-        coreContext.postOnCoreThread {
-            call.addListener(callListener)
-        }
-    }
-
-    fun onCallControlCallbackSet() {
-        Log.i(
-            "$TAG Callback have been set for call, Telecom call ID is [${callControl.getCallId()}]"
-        )
-
-        coreContext.postOnCoreThread {
-            val state = call.state
-            Log.i("$TAG Call state currently is [$state]")
+            if (closed.get()) return
             when (state) {
-                Call.State.Connected, Call.State.StreamsRunning -> answerCall()
-                Call.State.End -> callEnded()
-                Call.State.Error -> callError("")
-                Call.State.Released -> callEnded()
-                else -> {} // doing nothing
+                Call.State.Connected, Call.State.StreamsRunning -> synchronizeConnectedCall()
+                Call.State.End, Call.State.Error, Call.State.Released -> onCallFinished()
+                Call.State.Pausing -> callControl.launch {
+                    if (!closed.get()) logResult(callControl.setInactive(), "set inactive")
+                }
+                Call.State.Resuming -> callControl.launch {
+                    if (!closed.get()) logResult(callControl.setActive(), "set active")
+                }
+                else -> {}
             }
         }
+    }
 
-        callControl.availableEndpoints.onEach { list ->
-            Log.i("$TAG New available audio endpoints list but ignoring it")
-        }.launchIn(scope)
+    @WorkerThread
+    fun onCallControlCallbackSet(forceDisconnect: Boolean = false) {
+        if (forceDisconnect) {
+            disconnectPlatform(DisconnectCause.LOCAL)
+            return
+        }
+        call.addListener(callListener)
+        listenerAttached = true
+        val state = call.state
+        val ended = state == Call.State.End || state == Call.State.Error || state == Call.State.Released
+        val action = MyTelTelecomSessions.actionFor(
+            incoming = call.dir == Call.Dir.Incoming,
+            connected = state == Call.State.Connected || state == Call.State.StreamsRunning,
+            ended = ended
+        )
+        when (action) {
+            MyTelTelecomSessions.Action.Disconnect -> onCallFinished()
+            MyTelTelecomSessions.Action.Answer, MyTelTelecomSessions.Action.SetActive -> synchronizeConnectedCall()
+            MyTelTelecomSessions.Action.None -> {}
+        }
+        if (closed.get()) return
 
-        callControl.currentCallEndpoint.onEach { endpoint ->
-            Log.i("$TAG Android requests us to use [${endpoint.name}] audio endpoint with type [${endpointTypeToString(endpoint.type)}], ignoring it")
-        }.launchIn(scope)
-
+        // These collectors belong to this platform call, not the manager's
+        // lifetime. AndroidX cancels them when the call session disconnects.
+        callControl.availableEndpoints.onEach {
+            Log.i("$TAG Audio endpoints updated")
+        }.launchIn(callControl)
+        callControl.currentCallEndpoint.onEach {
+            Log.i("$TAG Platform audio endpoint updated")
+        }.launchIn(callControl)
         callControl.isMuted.onEach { muted ->
             coreContext.postOnCoreThread {
-                val callState = call.state
-                Log.i(
-                    "$TAG We're asked to [${if (muted) "mute" else "unmute"}] the call in state [$callState]"
-                )
-                // Only follow un-mute requests for not outgoing calls (such as joining a conference muted)
-                // and if connected to Android Auto that has a way to let user mute/unmute from the car directly
-                // or if we muted the call previously following Telecom Manager request.
-                if (muted || mutedByTelecomManager || (!LinphoneUtils.isCallOutgoing(callState, false) && coreContext.isConnectedToAndroidAuto)) {
+                if (closed.get()) return@postOnCoreThread
+                val stateNow = call.state
+                if (muted || mutedByTelecomManager ||
+                    (!LinphoneUtils.isCallOutgoing(stateNow, false) && coreContext.isConnectedToAndroidAuto)
+                ) {
                     mutedByTelecomManager = muted
                     call.microphoneMuted = muted
                     coreContext.refreshMicrophoneMuteStateEvent.postValue(Event(true))
-                } else {
-                    if (coreContext.isConnectedToAndroidAuto) {
-                        Log.w(
-                            "$TAG Not following unmute request because call is in state [$callState]"
-                        )
-                    } else {
-                        Log.w(
-                            "$TAG Not following unmute request because user isn't connected to Android Auto and call is in state [$callState]"
-                        )
-                    }
                 }
             }
-        }.launchIn(scope)
+        }.launchIn(callControl)
     }
 
-    private fun answerCall() {
+    @WorkerThread
+    private fun synchronizeConnectedCall() {
+        if (closed.get() || !connectionSynchronized.compareAndSet(false, true)) return
         val isVideo = LinphoneUtils.isVideoEnabled(call)
-        val type = if (isVideo) {
-            CallAttributesCompat.CALL_TYPE_VIDEO_CALL
-        } else {
-            CallAttributesCompat.CALL_TYPE_AUDIO_CALL
-        }
-        scope.launch {
-            Log.i("$TAG Answering [${if (isVideo) "video" else "audio"}] call")
-            val result = callControl.answer(type)
-            if (result is CallControlResult.Error) {
-                Log.e("$TAG Failed to answer call control: $result")
+        val type = if (isVideo) CallAttributesCompat.CALL_TYPE_VIDEO_CALL else CallAttributesCompat.CALL_TYPE_AUDIO_CALL
+        val action = MyTelTelecomSessions.actionFor(
+            incoming = call.dir == Call.Dir.Incoming,
+            connected = true,
+            ended = false
+        )
+        callControl.launch {
+            if (closed.get()) return@launch
+            // answer() is valid for incoming calls only. Late attachment to an
+            // already connected outgoing SIP call must transition DIALING->ACTIVE.
+            val result = if (action == MyTelTelecomSessions.Action.Answer) {
+                callControl.answer(type)
+            } else {
+                callControl.setActive()
             }
+            if (result is CallControlResult.Error) connectionSynchronized.set(false)
+            logResult(result, "synchronize connected call")
         }
-
         if (isVideo && corePreferences.routeAudioToSpeakerWhenVideoIsEnabled) {
-            Log.i("$TAG Answering video call, routing audio to speaker")
             AudioUtils.routeAudioToSpeaker(call)
         }
     }
 
-    private fun callEnded() {
+    @WorkerThread
+    fun onCallFinished() {
         val reason = call.reason
-        val direction = call.dir
-        scope.launch {
-            val disconnectCause = when (reason) {
-                Reason.NotAnswered -> DisconnectCause.REMOTE
-                Reason.Declined -> DisconnectCause.REJECTED
-                Reason.Busy -> {
-                    if (direction == Call.Dir.Incoming) {
-                        DisconnectCause.MISSED
-                    } else {
-                        DisconnectCause.BUSY
-                    }
-                }
-                else -> DisconnectCause.LOCAL
-            }
-            Log.i("$TAG Disconnecting [${if (direction == Call.Dir.Incoming)"incoming" else "outgoing"}] call with cause [${disconnectCauseToString(disconnectCause)}] because it has ended with reason [$reason]")
+        val cause = when (reason) {
+            Reason.NotAnswered -> DisconnectCause.REMOTE
+            Reason.Declined -> DisconnectCause.REJECTED
+            Reason.Busy -> if (call.dir == Call.Dir.Incoming) DisconnectCause.MISSED else DisconnectCause.REJECTED
+            else -> if (call.state == Call.State.Error) DisconnectCause.REJECTED else DisconnectCause.LOCAL
+        }
+        disconnectPlatform(cause)
+    }
+
+    @WorkerThread
+    fun onCoreStopped() {
+        disconnectPlatform(DisconnectCause.LOCAL)
+    }
+
+    @WorkerThread
+    private fun disconnectPlatform(cause: Int) {
+        if (!closed.compareAndSet(false, true)) return
+        detachListener()
+        callControl.launch {
             try {
-                val result = callControl.disconnect(DisconnectCause(disconnectCause))
-                if (result is CallControlResult.Error) {
-                    Log.e("$TAG Failed to disconnect call control: $result")
-                }
-            } catch (ise: IllegalArgumentException) {
-                Log.e("$TAG Couldn't disconnect call control with cause [${disconnectCauseToString(disconnectCause)}]: $ise")
+                logResult(callControl.disconnect(DisconnectCause(cause)), "disconnect")
+            } catch (ce: CancellationException) {
+                throw ce
+            } catch (e: Exception) {
+                Log.e("$TAG Unable to disconnect platform call: $e")
             }
         }
     }
 
-    private fun callError(message: String) {
-        val reason = call.reason
-        scope.launch {
-            // For some reason DisconnectCause.ERROR or DisconnectCause.BUSY triggers an IllegalArgumentException with following message
-            // Valid DisconnectCause codes are limited to [DisconnectCause.LOCAL, DisconnectCause.REMOTE, DisconnectCause.MISSED, or DisconnectCause.REJECTED]
-            val disconnectCause = DisconnectCause.REJECTED
-            Log.w("$TAG Disconnecting call with cause [${disconnectCauseToString(disconnectCause)}] due to error [$message] and reason [$reason]")
-            try {
-                val result = callControl.disconnect(DisconnectCause(disconnectCause))
-                if (result is CallControlResult.Error) {
-                    Log.e("$TAG Failed to disconnect call control: $result")
-                }
-            } catch (ise: IllegalArgumentException) {
-                Log.e("$TAG Couldn't disconnect call control with cause [${disconnectCauseToString(disconnectCause)}]: $ise")
-            }
+    @WorkerThread
+    fun dispose() {
+        closed.set(true)
+        detachListener()
+    }
+
+    @WorkerThread
+    private fun detachListener() {
+        if (listenerAttached) {
+            call.removeListener(callListener)
+            listenerAttached = false
         }
     }
 
-    private fun disconnectCauseToString(cause: Int): String {
-        return when (cause) {
-            DisconnectCause.UNKNOWN -> "UNKNOWN"
-            DisconnectCause.ERROR -> "ERROR"
-            DisconnectCause.LOCAL -> "LOCAL"
-            DisconnectCause.REMOTE -> "REMOTE"
-            DisconnectCause.CANCELED -> "CANCELED"
-            DisconnectCause.MISSED -> "MISSED"
-            DisconnectCause.REJECTED -> "REJECTED"
-            DisconnectCause.BUSY -> "BUSY"
-            DisconnectCause.RESTRICTED -> "RESTRICTED"
-            DisconnectCause.OTHER -> "OTHER"
-            DisconnectCause.CONNECTION_MANAGER_NOT_SUPPORTED -> "CONNECTION_MANAGER_NOT_SUPPORTED"
-            DisconnectCause.ANSWERED_ELSEWHERE -> "ANSWERED_ELSEWHERE"
-            DisconnectCause.CALL_PULLED -> "CALL_PULLED"
-            else -> "UNEXPECTED: $cause"
-        }
-    }
-
-    private fun endpointTypeToString(type: Int): String {
-        return when (type) {
-            CallEndpointCompat.TYPE_UNKNOWN -> "UNKNOWN"
-            CallEndpointCompat.TYPE_EARPIECE -> "EARPIECE"
-            CallEndpointCompat.TYPE_BLUETOOTH -> "BLUETOOTH"
-            CallEndpointCompat.TYPE_WIRED_HEADSET -> "WIRED HEADSET"
-            CallEndpointCompat.TYPE_SPEAKER -> "SPEAKER"
-            CallEndpointCompat.TYPE_STREAMING -> "STREAMING"
-            else -> "UNEXPECTED: $type"
-        }
+    private fun logResult(result: CallControlResult, operation: String) {
+        if (result is CallControlResult.Error) Log.e("$TAG Failed to $operation: $result")
     }
 }

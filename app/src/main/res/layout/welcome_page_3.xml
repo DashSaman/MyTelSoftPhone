@@ -14,9 +14,8 @@
             android:layout_width="wrap_content"
             android:layout_height="@dimen/welcome_icon_size"
             android:layout_marginTop="80dp"
-            android:src="@drawable/welcome_open_source_logo"
+            android:src="@drawable/mytel_logo_badge"
             android:contentDescription="@null"
-            app:tint="@color/mytel_blue"
             app:layout_constraintDimensionRatio="1:1"
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintStart_toStartOf="parent"
@@ -51,6 +50,24 @@
             app:layout_constraintTop_toBottomOf="@id/page_title"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"/>
+
+
+        <androidx.appcompat.widget.AppCompatTextView
+            style="@style/default_text_style_800"
+            android:id="@+id/mytel_website"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:layout_marginBottom="24dp"
+            android:text="@string/mytel_website_url"
+            android:textColorLink="@color/mytel_blue"
+            android:autoLink="web"
+            android:linksClickable="true"
+            android:textSize="18sp"
+            android:gravity="center"
+            app:layout_constraintTop_toBottomOf="@id/message"
+            app:layout_constraintStart_toStartOf="@id/message"
+            app:layout_constraintEnd_toEndOf="@id/message" />
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 

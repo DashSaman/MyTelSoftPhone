@@ -20,67 +20,61 @@
 package org.linphone.telecom
 
 import android.content.Context
+import android.os.Build
 import androidx.annotation.WorkerThread
+import androidx.core.net.toUri
 import androidx.core.telecom.CallAttributesCompat
 import androidx.core.telecom.CallException
 import androidx.core.telecom.CallsManager
-import android.os.Build
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
 import org.linphone.LinphoneApplication.Companion.coreContext
+import org.linphone.compatibility.Compatibility
 import org.linphone.core.Call
 import org.linphone.core.Core
 import org.linphone.core.CoreListenerStub
 import org.linphone.core.tools.Log
 import org.linphone.utils.LinphoneUtils
-import androidx.core.net.toUri
-import org.linphone.compatibility.Compatibility
+import org.linphone.utils.MyTelTelecomSessions
 
 class TelecomManager
     @WorkerThread
     constructor(context: Context) {
     companion object {
         private const val TAG = "[Telecom Manager]"
-
         private val SAMSUNG_S23s =
             arrayListOf("dm3q", "dm1q", "dm2q", "r11s", "r11q", "SC-52D", "SCG19", "SC-51D", "SCG24", "SCG20")
     }
 
     private val callsManager = CallsManager(context)
-
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-
-    private val map = HashMap<String, TelecomCallControlCallback>()
+    private val sessions = MyTelTelecomSessions<Call>()
+    // Android permits only one addCall setup until its CallControlScope is ready.
+    private val setupMutex = Mutex()
+    // Accessed on the SDK core thread, keyed by the SIP call, not its mutable Call-ID.
+    private val controls = HashMap<Call, TelecomCallControlCallback>()
+    private val hasTelecomFeature = Compatibility.hasTelecomManagerFeature(context)
 
     private val coreListener = object : CoreListenerStub() {
         @WorkerThread
-        override fun onCallStateChanged(
-            core: Core,
-            call: Call,
-            state: Call.State?,
-            message: String
-        ) {
-            if (state == Call.State.IncomingReceived || state == Call.State.OutgoingProgress) {
-                onCallCreated(call)
+        override fun onCallStateChanged(core: Core, call: Call, state: Call.State?, message: String) {
+            when (state) {
+                Call.State.IncomingReceived, Call.State.OutgoingProgress -> onCallCreated(call)
+                Call.State.End, Call.State.Error, Call.State.Released -> {
+                    sessions.end(call)
+                    controls[call]?.onCallFinished()
+                }
+                else -> {}
             }
-        }
-
-        @WorkerThread
-        override fun onLastCallEnded(core: Core) {
-            currentlyFollowedCalls = 0
         }
     }
 
-    private val hasTelecomFeature = Compatibility.hasTelecomManagerFeature(context)
-
-    private var currentlyFollowedCalls: Int = 0
-
     init {
-        Log.i(
-            "$TAG Feature is [${if (hasTelecomFeature) "available" else "not available"}]"
-        )
+        Log.i("$TAG Feature is [${if (hasTelecomFeature) "available" else "not available"}]")
         if (hasTelecomFeature) {
             try {
                 callsManager.registerAppWithTelecom(CallsManager.CAPABILITY_SUPPORTS_VIDEO_CALLING)
@@ -93,130 +87,113 @@ class TelecomManager
 
     @WorkerThread
     fun onCallCreated(call: Call) {
-        Log.i("$TAG Call to [${call.remoteAddress.asStringUriOnly()}] created in state [${call.state}]")
+        val session = sessions.begin(call)
+        if (session == null) {
+            Log.i("$TAG SIP call already owns a pending or active Telecom session")
+            return
+        }
 
+        // Snapshot every SDK property here; addCall and its callbacks run asynchronously.
         val address = call.callLog.remoteAddress
         val uri = address.asStringUriOnly().toUri()
-
         val direction = if (call.dir == Call.Dir.Outgoing) {
             CallAttributesCompat.DIRECTION_OUTGOING
         } else {
             CallAttributesCompat.DIRECTION_INCOMING
         }
-
-        val capabilities = CallAttributesCompat.SUPPORTS_SET_INACTIVE or CallAttributesCompat.SUPPORTS_TRANSFER
-
         val conferenceInfo = LinphoneUtils.getConferenceInfoIfAny(call)
         val displayName = if (call.conference != null || conferenceInfo != null) {
             conferenceInfo?.subject ?: call.conference?.subject ?: LinphoneUtils.getDisplayName(address)
         } else {
-            val friend = coreContext.contactsManager.findContactByAddress(address)
-            friend?.name ?: LinphoneUtils.getDisplayName(address)
+            coreContext.contactsManager.findContactByAddress(address)?.name
+                ?: LinphoneUtils.getDisplayName(address)
         }
-
-        // Always set type to video (if enabled in Core) as it indicates that video is supported, not that it's being used at the time
-        // https://developer.android.com/reference/kotlin/androidx/core/telecom/CallAttributesCompat#CALL_TYPE_VIDEO_CALL()
-        val type = if (!call.core.isVideoEnabled) {
-            CallAttributesCompat.CALL_TYPE_AUDIO_CALL
-        } else if (Build.DEVICE in SAMSUNG_S23s) {
-            Log.w("$TAG Samsung S23, S23 FE, S23+ or S23 Ultra detected [${Build.MODEL}], applying workaround to prevent no audio on earpiece issue")
+        val type = if (!call.core.isVideoEnabled || Build.DEVICE in SAMSUNG_S23s) {
             CallAttributesCompat.CALL_TYPE_AUDIO_CALL
         } else {
             CallAttributesCompat.CALL_TYPE_VIDEO_CALL
         }
+        val attributes = CallAttributesCompat(
+            displayName, uri, direction, type,
+            CallAttributesCompat.SUPPORTS_SET_INACTIVE or CallAttributesCompat.SUPPORTS_TRANSFER,
+            isLogExcluded = true
+        )
 
         scope.launch {
+            var callbacks: TelecomCallControlCallback? = null
             try {
-                val callAttributes = CallAttributesCompat(
-                    displayName,
-                    uri,
-                    direction,
-                    type,
-                    capabilities,
-                    isLogExcluded = true
-                )
-                Log.i("$TAG Adding call to Telecom's CallsManager with attributes [$callAttributes]")
-
+                setupMutex.lock(session)
+                // An early SIP failure can finish the call while Android setup is queued.
+                if (!sessions.isLive(session)) return@launch
                 callsManager.addCall(
-                    callAttributes,
-                    { callType -> // onAnswer
-                        Log.i("$TAG We're asked to answer the call with type [$callType]")
+                    attributes,
+                    { // onAnswer
                         coreContext.postOnCoreThread {
-                            if (LinphoneUtils.isCallIncoming(call.state)) {
-                                Log.i("$TAG Answering call")
+                            if (sessions.isLive(session) && LinphoneUtils.isCallIncoming(call.state)) {
                                 coreContext.answerCall(call)
                             }
                         }
                     },
-                    { disconnectCause -> // onDisconnect
-                        Log.i(
-                            "$TAG We're asked to terminate the call with reason [$disconnectCause]"
-                        )
+                    { // onDisconnect
                         coreContext.postOnCoreThread {
-                            coreContext.terminateCall(call)
+                            if (sessions.isLive(session)) coreContext.terminateCall(call)
                         }
-                        currentlyFollowedCalls -= 1
                     },
                     { // onSetActive
-                        Log.i("$TAG We're asked to resume the call")
                         coreContext.postOnCoreThread {
-                            Log.i("$TAG Resuming call")
-                            call.resume()
+                            if (sessions.isLive(session) && call.state == Call.State.Paused) call.resume()
                         }
                     },
                     { // onSetInactive
-                        Log.i("$TAG We're asked to pause the call")
                         coreContext.postOnCoreThread {
-                            Log.i("$TAG Pausing call")
-                            call.pause()
+                            if (sessions.isLive(session)) call.pause()
                         }
                     }
                 ) {
-                    val callbacks = TelecomCallControlCallback(call, this, scope)
-
-                    // We must first call setCallback on callControlScope before using it
-                    callbacks.onCallControlCallbackSet()
-                    currentlyFollowedCalls += 1
-                    Log.i("$TAG Call added to Telecom's CallsManager")
-
+                    // Setup is complete; other calls may now register without waiting
+                    // for this entire (possibly long-lived) call to disconnect.
+                    setupMutex.unlock(session)
+                    val callback = TelecomCallControlCallback(call, this)
+                    callbacks = callback
                     coreContext.postOnCoreThread {
-                        val callId = call.callLog.callId.orEmpty()
-                        if (callId.isNotEmpty()) {
-                            Log.i("$TAG Storing our callbacks for call ID [$callId]")
-                            map[callId] = callbacks
-                        }
+                        controls[call] = callback
+                        callback.onCallControlCallbackSet(forceDisconnect = !sessions.isLive(session))
                     }
                 }
+            } catch (ce: CancellationException) {
+                throw ce
             } catch (ce: CallException) {
                 Log.e("$TAG Failed to add call to Telecom's CallsManager: $ce")
-            } catch (se: SecurityException) {
-                Log.e("$TAG Security exception trying to add call to Telecom's CallsManager: $se")
-            } catch (ise: IllegalArgumentException) {
-                Log.e("$TAG Illegal argument exception trying to add call to Telecom's CallsManager: $ise")
             } catch (e: Exception) {
-                Log.e("$TAG Exception trying to add call to Telecom's CallsManager: $e")
+                Log.e("$TAG Unable to register Telecom call: $e")
+            } finally {
+                if (setupMutex.holdsLock(session)) setupMutex.unlock(session)
+                val callback = callbacks
+                coreContext.postOnCoreThread {
+                    callback?.dispose()
+                    if (sessions.release(session)) controls.remove(call)
+                }
             }
         }
     }
 
     @WorkerThread
     fun onCoreStarted(core: Core) {
-        Log.i("$TAG Core has been started")
         if (hasTelecomFeature) {
             core.addListener(coreListener)
         } else {
-            Log.w(
-                "$TAG android.software.telecom feature is not available, enable audio focus requests in Linphone SDK"
-            )
-            coreContext.core.config.setBool("audio", "android_disable_audio_focus_requests", false)
+            Log.w("$TAG Telecom unavailable; enabling SDK audio focus requests")
+            core.config.setBool("audio", "android_disable_audio_focus_requests", false)
         }
     }
 
     @WorkerThread
     fun onCoreStopped(core: Core) {
-        Log.i("$TAG Core is being stopped")
         if (hasTelecomFeature) {
             core.removeListener(coreListener)
+            sessions.endAll()
+            controls.values.toList().forEach { it.onCoreStopped() }
+            controls.clear()
         }
     }
 }

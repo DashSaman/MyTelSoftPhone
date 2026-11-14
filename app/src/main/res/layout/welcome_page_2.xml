@@ -14,7 +14,7 @@
             android:layout_width="wrap_content"
             android:layout_height="@dimen/welcome_icon_size"
             android:layout_marginTop="80dp"
-            android:src="@drawable/welcome_secured_logo"
+            android:src="@drawable/phone_call"
             android:contentDescription="@null"
             app:tint="@color/mytel_blue"
             app:layout_constraintDimensionRatio="1:1"

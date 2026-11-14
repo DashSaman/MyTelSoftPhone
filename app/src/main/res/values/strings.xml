@@ -151,11 +151,12 @@
     <!-- First screens user see when app is installed and started -->
     <string name="welcome_page_title">Welcome</string>
     <string name="welcome_page_subtitle">in &appName;</string>
-    <string name="welcome_page_1_message">The <b>secure</b> business softphone of <b>MyTel</b> — mytel.one.</string>
-    <string name="welcome_page_2_title">Secured</string>
-    <string name="welcome_page_2_message">Crystal-clear <b>voice and video calls</b> over your company SIP platform.</string>
-    <string name="welcome_page_3_title">Open source</string>
-    <string name="welcome_page_3_message">Stay <b>reachable</b> — receive calls even when the app is in background.</string>
+    <string name="welcome_page_1_message">Your <b>MyTel</b> business softphone — calls and conversations in one app.</string>
+    <string name="welcome_page_2_title">Stay connected</string>
+    <string name="welcome_page_2_message"><b>Voice, video and chat</b> with your company SIP platform, in a simple MyTel interface.</string>
+    <string name="welcome_page_3_title">Discover MyTel</string>
+    <string name="welcome_page_3_message">Business communication, made simple.\nExplore MyTel services and support on our website.</string>
+    <string name="mytel_website_url" translatable="false">https://mytel.one</string>
 
     <!-- Generic toasts -->
     <string name="phone_number_copied_to_clipboard_toast">Phone number copied into clipboard</string>
