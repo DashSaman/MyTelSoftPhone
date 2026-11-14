@@ -5,18 +5,8 @@
 <resources>
     <string name="sip_address">SIP adresa</string>
     <string name="sip_address_display_name">Zobrazené jméno</string>
-    <plurals name="days">
-        <item quantity="one">%s den</item>
-        <item quantity="few">%s dny</item>
-        <item quantity="other">%s dní</item>
-    </plurals>
     <string name="notification_channel_call_name">Oznámení o aktivních hovorech &appName;</string>
     <string name="notification_channel_service_desc">Služba bude běžet trvale, aby zajistila funkčnost aplikace a příjem hovorů a zpráv bez použití push oznámení.</string>
-    <plurals name="notification_file_transfer_upload">
-        <item quantity="one">%s soubor se nahrává</item>
-        <item quantity="few">%s soubory se nahrávají</item>
-        <item quantity="other">%s souborů se nahrává</item>
-    </plurals>
     <string name="assistant_qr_code_invalid_toast">Neplatný QR kód!</string>
     <string name="assistant_login_address_without_username_toast">SIP adrese neobsahuje uživatelské jméno!</string>
     <string name="help_about_contribute_translations_title">Příspět do překladu &appName;</string>
@@ -43,11 +33,6 @@
     <string name="conversation_end_to_end_encrypted_bottom_sheet_message">Díky technologii koncového šifrování v &appName; je zaručena důvěrnost zpráv, hovorů a schůzek. Nikdo nedokáže dešifrovat přenesená data, dokonce ani my.</string>
     <string name="menu_reply_to_chat_message">Odpovědět</string>
     <string name="list_filter_no_result_found">Žádné výsledky…</string>
-    <plurals name="pending_notification_for_other_accounts">
-        <item quantity="one">%s oznámení pro další účet/účty</item>
-        <item quantity="few">%s oznámení pro další účet/účty</item>
-        <item quantity="other">%s oznámení pro další účet/účty</item>
-    </plurals>
     <string name="full_screen_intent_permission_not_granted">Oprávnění k zobrazení příchozích hovorů nebylo uděleno!</string>
     <string name="content_description_click_for_more_info">Klepnutím zobrazit více informací</string>
     <string name="content_description_answer_video_call">Přijme videohovor</string>
@@ -78,11 +63,6 @@
     <string name="call_stats_fec_lost_packets_label">Ztracené pakety: %s</string>
     <string name="call_stats_zrtp_sas_algo">SAS algoritmus: %s</string>
     <string name="conference_share_link_title">Sdílet pozvánku</string>
-    <plurals name="conference_participants_list_title">
-        <item quantity="one">Účastník (%s)</item>
-        <item quantity="few">Účastníci (%s)</item>
-        <item quantity="other">Účastníků (%s)</item>
-    </plurals>
     <string name="menu_add_address_to_contacts">Přidat do kontaktů</string>
     <string name="menu_delete_selected_item">Smazat</string>
     <string name="conversation_message_meeting_updated_label"><b>Schůzka byla aktualizována</b></string>
@@ -145,11 +125,6 @@
     <string name="start">Začít</string>
     <string name="today">Dnes</string>
     <string name="yesterday">Včera</string>
-    <plurals name="selection_count_label">
-        <item quantity="one">%s vybrán</item>
-        <item quantity="few">%s vybrány</item>
-        <item quantity="other">%s vybráno</item>
-    </plurals>
     <string name="dialog_deny">Odmítnout</string>
     <string name="dialog_accept">Přijmout</string>
     <string name="dialog_cancel">Zrušit</string>
@@ -176,11 +151,6 @@
     <string name="notification_push_received_message">Hledání nových zpráv</string>
     <string name="notification_file_transfer_title">&appName;</string>
     <string name="notification_file_transfer_startup_message">Probíhá přenos souboru/souborů</string>
-    <plurals name="notification_file_transfer_download">
-        <item quantity="one">%s soubor se stahuje</item>
-        <item quantity="few">%s soubory se stahují</item>
-        <item quantity="other">%s souborů se stahuje</item>
-    </plurals>
     <string name="notification_keep_app_alive_message">Klepněte pro otevření</string>
     <string name="welcome_page_title">Vítejte</string>
     <string name="welcome_page_subtitle">v &appName;</string>
@@ -459,11 +429,6 @@
     <string name="conversations_list_empty">Momentálně žádné konverzace…</string>
     <string name="conversations_list_is_being_removed_label">Probíhá odstraňování…</string>
     <string name="conversations_last_message_format">%s:</string>
-    <plurals name="conversations_files_waiting_to_be_shared_toast">
-        <item quantity="one">%s soubor čeká na sdílení</item>
-        <item quantity="few">%s soubory čekají na sdílení</item>
-        <item quantity="other">%s souborů čeká na sdílení</item>
-    </plurals>
     <string name="conversations_text_waiting_to_be_shared_toast">Text čeká na sdílení</string>
     <string name="conversation_action_mark_as_read">Označit jako přečtené</string>
     <string name="conversation_action_mute">Ztlumit</string>
@@ -484,11 +449,6 @@
     <string name="new_conversation_create_group">Vytvořit skupinovou konverzaci</string>
     <string name="new_conversation_no_contact">Momentálně žádný kontakt ani návrh…</string>
     <string name="conversation_text_field_hint">Napište něco…</string>
-    <plurals name="conversation_composing_label">
-        <item quantity="one">%s píše…</item>
-        <item quantity="few">%s píší…</item>
-        <item quantity="other">%s píše…</item>
-    </plurals>
     <string name="conversation_add_participants_title">Přidat účastníky</string>
     <string name="conversation_reply_to_message_title">Odpovídá na:</string>
     <string name="conversation_menu_search_in_messages">Hledat</string>
@@ -732,11 +692,6 @@
     <string name="generic_address_picker_favorites_list_title">Oblíbené</string>
     <string name="generic_address_picker_suggestions_list_title">Návrhy</string>
     <string name="post_notifications_permission_not_granted">Oprávnění k zasílání oznámení nebylo uděleno!</string>
-    <plurals name="mwi_messages_are_waiting">
-        <item quantity="one">%s nová hlasová zpráva</item>
-        <item quantity="few">%s nové hlasové zprávy</item>
-        <item quantity="other">%s nových hlasových zpráv</item>
-    </plurals>
     <string name="welcome_carousel_skip"><u>Přeskočit</u></string>
     <string name="assistant_forgotten_password"><u>Zapomenuté heslo?</u></string>
     <string name="call_zrtp_sas_validation_skip"><u>Přeskočit</u></string>
@@ -894,11 +849,6 @@
     <string name="content_description_close_drawer_menu">Zavřít menu</string>
     <string name="notification_in_call_foreground_service_error_title">Volaný vás neslyší!</string>
     <string name="settings_developer_no_auth_info_removed_toast">Žádné osiřelé autentizační údaje nebyly nalezeny</string>
-    <plurals name="settings_developer_cleared_auth_info_toast">
-        <item quantity="one">%s osiřelý autentizační údaj odstraněn</item>
-        <item quantity="few">%s osiřelé autentizační údaje byly odstraněny</item>
-        <item quantity="other">%s osiřelých autentizačních údajů bylo odstraněno</item>
-    </plurals>
     <string name="notification_in_call_foreground_service_error_message">Klikněte na toto oznámení a opravte to</string>
     <string name="manage_account_status_registration_status_title">Stav připojení</string>
     <string name="settings_developer_clear_orphan_auth_info_title">Vymazat autentizační údaje, které již nejsou spojeny s žádným účtem</string>

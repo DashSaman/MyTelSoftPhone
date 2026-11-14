@@ -16,16 +16,6 @@
     <string name="start">Rozpocznij</string>
     <string name="today">Dziś</string>
     <string name="yesterday">Wczoraj</string>
-    <plurals name="days">
-        <item quantity="one">%s dzień</item>
-        <item quantity="many">%s dni</item>
-        <item quantity="other">%s dni</item>
-    </plurals>
-    <plurals name="selection_count_label">
-        <item quantity="one">%s wybrany</item>
-        <item quantity="many">%s wybranych</item>
-        <item quantity="other">%s wybranych</item>
-    </plurals>
     <string name="dialog_deny">Nie zezwalaj</string>
     <string name="dialog_accept">Akceptuj</string>
     <string name="dialog_cancel">Anuluj</string>
@@ -51,16 +41,6 @@
     <string name="contact_details_delete">Usuń</string>
     <string name="notification_file_transfer_title">&appName;</string>
     <string name="notification_file_transfer_startup_message">Trwa przesyłanie plików</string>
-    <plurals name="notification_file_transfer_upload">
-        <item quantity="one">%s plik jest przesyłany</item>
-        <item quantity="many">%s plików jest przesyłanych</item>
-        <item quantity="other">%s plików jest przesyłanych</item>
-    </plurals>
-    <plurals name="notification_file_transfer_download">
-        <item quantity="one">%s plik jest pobierany</item>
-        <item quantity="many">%s plików jest pobieranych</item>
-        <item quantity="other">%s plików jest pobieranych</item>
-    </plurals>
     <string name="notification_keep_app_alive_message">Kliknij, aby otworzyć</string>
     <string name="welcome_page_title">Witamy</string>
     <string name="welcome_page_subtitle">w &appName;</string>

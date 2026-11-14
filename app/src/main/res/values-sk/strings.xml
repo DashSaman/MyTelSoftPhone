@@ -14,16 +14,6 @@
     <string name="start">Začať</string>
     <string name="today">Dnes</string>
     <string name="yesterday">Včera</string>
-    <plurals name="days">
-        <item quantity="one">%s deň</item>
-        <item quantity="few">%s dní</item>
-        <item quantity="other">%s dní</item>
-    </plurals>
-    <plurals name="selection_count_label">
-        <item quantity="one">%s vybrané</item>
-        <item quantity="few">%s vybraných</item>
-        <item quantity="other">%s vybraných</item>
-    </plurals>
     <string name="dialog_deny">Odmietnuť</string>
     <string name="dialog_accept">Prijať</string>
     <string name="dialog_cancel">Zrušiť</string>
@@ -55,16 +45,6 @@
     <string name="notification_push_received_message">Hľadanie nových správ</string>
     <string name="notification_file_transfer_title">&appName;</string>
     <string name="notification_file_transfer_startup_message">Prebieha prenos súboru(-ov)</string>
-    <plurals name="notification_file_transfer_upload">
-        <item quantity="one">%s súbor sa nahráva</item>
-        <item quantity="few">%s súborov sa nahráva</item>
-        <item quantity="other">%s súborov sa nahráva</item>
-    </plurals>
-    <plurals name="notification_file_transfer_download">
-        <item quantity="one">%s súbor sa sťahuje</item>
-        <item quantity="few">%s súborov sa sťahuje</item>
-        <item quantity="other">%s súborov sa sťahuje</item>
-    </plurals>
     <string name="notification_keep_app_alive_message">Kliknite pre otvorenie</string>
     <string name="welcome_page_title">Vitajte</string>
     <string name="welcome_page_subtitle">v &appName;</string>
@@ -418,11 +398,6 @@
     <string name="contact_editor_first_name">Krstné meno</string>
     <string name="contact_details_job_title">Pracovná pozícia:</string>
     <string name="contact_dialog_devices_trust_help_message">Skontrolujte všetky zariadenia svojich kontaktov, aby ste mali istotu, že Vaše komunikácie budú zabezpečené a nepozmenené. \nKeď budú všetky overené, dosiahnete maximálnu úroveň dôvery.</string>
-    <plurals name="conversations_files_waiting_to_be_shared_toast">
-        <item quantity="one">%s súbor čaká na zdieľanie</item>
-        <item quantity="few">%s súbory čakajú na zdieľanie</item>
-        <item quantity="other">%s súborov čaká na zdieľanie</item>
-    </plurals>
     <string name="conversation_ephemeral_messages_subtitle">Nové správy sa automaticky odstránia, keď si ich všetci prečítajú.\nVyberte dobu trvania:</string>
     <string name="conversation_ephemeral_messages_duration_disabled">Zakázané</string>
     <string name="conversation_ephemeral_messages_duration_one_minute">1 minúta</string>
@@ -438,11 +413,6 @@
     <string name="new_conversation_no_contact">Momentálne žiadny kontakt ani návrh…</string>
     <string name="new_conversation_no_matching_contact">Žiadny zhodný výsledok…</string>
     <string name="conversation_text_field_hint">Napíšte niečo…</string>
-    <plurals name="conversation_composing_label">
-        <item quantity="one">%s píše…</item>
-        <item quantity="few">%s píšu…</item>
-        <item quantity="other">%s píše…</item>
-    </plurals>
     <string name="conversation_add_participants_title">Pridať účastníkov</string>
     <string name="conversation_reply_to_message_title">Odpovedá na:</string>
     <string name="conversation_menu_search_in_messages">Hľadať</string>
@@ -715,11 +685,6 @@
     <string name="generic_address_picker_favorites_list_title">Obľúbené</string>
     <string name="generic_address_picker_suggestions_list_title">Návrhy</string>
     <string name="full_screen_intent_permission_not_granted">Povolenie na zobrazovanie prichádzajúcich hovorov nebolo udelené!</string>
-    <plurals name="mwi_messages_are_waiting">
-        <item quantity="one">%s nová hlasová správa</item>
-        <item quantity="few">%s nové hlasové správy</item>
-        <item quantity="other">%s nových hlasových správ</item>
-    </plurals>
     <string name="welcome_carousel_skip"><u>Preskočiť</u></string>
     <string name="call_zrtp_sas_validation_skip"><u>Preskočiť</u></string>
     <string name="conversation_message_meeting_cancelled_label"><b>Schôdzka bola zrušená!</b></string>
@@ -801,19 +766,9 @@
     <string name="content_description_toggle_microphone">Vypne/zapne mikrofón</string>
     <string name="content_description_merge_calls_into_conference">Zlúčenie hovorov do konferencie</string>
     <string name="call_transfer_in_progress_toast">Hovor je presmerovaný</string>
-    <plurals name="conference_participants_list_title">
-        <item quantity="one">Účastník (%s)</item>
-        <item quantity="few">Účastníci (%s)</item>
-        <item quantity="other">Účastníkov (%s)</item>
-    </plurals>
     <string name="content_description_open_filter">Zobrazí filter</string>
     <string name="conference_layout_audio_only">Iba zvuk</string>
     <string name="car_favorites_contacts_title">Obľúbené</string>
-    <plurals name="pending_notification_for_other_accounts">
-        <item quantity="one">%s oznámenie pre ďalší účet(ďalšie účty)</item>
-        <item quantity="few">%s oznámenia pre ďalší účet(ďalšie účty)</item>
-        <item quantity="other">%s oznámení pre ďalší účet(ďalšie účty)</item>
-    </plurals>
     <string name="menu_forward_chat_message">Preposlať</string>
     <string name="content_description_erase_last_input">Odstráni poslednú číslicu alebo znak</string>
     <string name="content_description_show_numpad">Zobrazí číselník (numerickú klávesnicu)</string>
