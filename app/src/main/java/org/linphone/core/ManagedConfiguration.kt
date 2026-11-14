@@ -64,20 +64,19 @@ object ManagedConfiguration {
         val rootCa = restrictions.getString(KEY_ROOT_CA).orEmpty()
         val xmlConfig = restrictions.getString(KEY_XML_CONFIG).orEmpty()
 
-        val currentProvisioningUri = core.provisioningUri
-
         if (xmlConfig.isNotBlank()) {
-            Log.w("$TAG Updating  configuration from managed configuration xmlConfig = [$xmlConfig]")
+            Log.i("$TAG Applying managed XML configuration")
             core.config.loadFromXmlString(xmlConfig)
         }
 
         if (rootCa.isNotBlank() && rootCa != core.rootCa) {
-            Log.w("$TAG Updating root CA from managed configuration $rootCa")
+            Log.i("$TAG Updating managed root CA")
             core.rootCa = rootCa
         }
 
-        if (configUri.isNotBlank() && configUri != currentProvisioningUri) { // takes priority over potential config-uri set in xmlConfig
-            Log.w("$TAG Updating provisioning URI from managed configuration $configUri")
+        if (configUri.isNotBlank() && configUri != core.provisioningUri) {
+            // XML can replace config-uri; compare after applying it so MDM keeps priority.
+            Log.i("$TAG Updating managed provisioning URI")
             core.provisioningUri = configUri
         }
 
