@@ -16,6 +16,7 @@ plugins {
 }
 
 val packageName = "one.mytel.softphone"
+val mytelVersion = "3.0.0"
 val useDifferentPackageNameForDebugBuild = false
 
 val sdkPath = providers.gradleProperty("LinphoneSdkBuildDir").get()
@@ -102,8 +103,8 @@ android {
         applicationId = packageName
         minSdk = 28
         targetSdk = 37
-        versionCode = 20404
-        versionName = "2.4.4"
+        versionCode = 30000
+        versionName = mytelVersion
 
         manifestPlaceholders["appAuthRedirectScheme"] = packageName
 
@@ -118,19 +119,18 @@ android {
         variant.outputs
             .map { it as com.android.build.gradle.internal.api.BaseVariantOutputImpl }
             .forEach { output ->
-                output.outputFileName = "MytellPhone-${variant.buildType.name}-$gitVersion.apk"
+                output.outputFileName = "MytellPhone-${variant.buildType.name}-v$mytelVersion.apk"
             }
     }
 
     // MyTel: keystore.properties is deliberately not committed; a clean
-    // checkout (e.g. CI) must still configure and build. Without it the
-    // release build is signed with the debug key — never ship that APK.
+    // checkout can build debug APKs. Release packaging requires the production key.
     val keystorePropertiesFile = rootProject.file("keystore.properties")
     val keystoreProperties = Properties()
     if (keystorePropertiesFile.exists()) {
         keystoreProperties.load(FileInputStream(keystorePropertiesFile))
     } else {
-        println("keystore.properties not found, release builds will use the debug keystore")
+        println("Release signing is unavailable; debug builds remain available")
     }
 
     signingConfigs {
@@ -144,10 +144,11 @@ android {
                 keyPassword = keystoreProperties["keyPassword"] as String
                 println("Signing config release is using keystore [$storeFile]")
             } else {
-                println("Keystore not available, falling back to debug signing for release")
-                // Reuse the debug signing config so assembleRelease succeeds
-                // on clean checkouts (CI); never ship such an APK publicly.
-                initWith(signingConfigs.getByName("debug"))
+                tasks.matching { it.name == "packageRelease" || it.name == "validateSigningRelease" }.configureEach {
+                    doFirst {
+                        error("Release signing requires the existing production keystore and private keystore.properties. Use assembleDebug for development.")
+                    }
+                }
             }
         }
     }
@@ -160,7 +161,7 @@ android {
             isDebuggable = true
             isJniDebuggable = true
 
-            val appVersion = gitVersion
+            val appVersion = mytelVersion
             val appBranch = gitBranch
             println("Debug flavor app version is [$appVersion], app branch is [$appBranch]")
             resValue("string", "linphone_app_version", appVersion)
@@ -191,7 +192,7 @@ android {
             )
             signingConfig = signingConfigs.getByName("release")
 
-            val appVersion = gitVersion
+            val appVersion = mytelVersion
             val appBranch = gitBranch
             println("Release flavor app version is [$appVersion], app branch is [$appBranch]")
             resValue("string", "linphone_app_version", appVersion)
@@ -324,7 +325,7 @@ configure<org.jlleitschuh.gradle.ktlint.KtlintExtension> {
         )
     )
 }
-project.tasks.preBuild.dependsOn("ktlintFormat")
+// Validation must not rewrite source files as a side effect of a build.
 
 if (crashlyticsAvailable) {
     afterEvaluate {

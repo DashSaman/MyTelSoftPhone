@@ -4,7 +4,7 @@
 
     <data />
 
-    <LinearLayout
+    <ScrollView android:layout_width="match_parent" android:layout_height="wrap_content"><LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
@@ -29,7 +29,7 @@
             android:layout_marginTop="12dp"
             android:padding="12dp"
             android:gravity="center"
-            android:inputType="phone"
+            android:inputType="phone" android:layoutDirection="ltr"
             android:maxLines="1"
             android:hint="@string/start_chat_hint"
             android:textSize="24sp"
@@ -92,7 +92,7 @@
                 style="@style/default_text_style_500"
                 android:id="@+id/call_button"
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:layout_height="wrap_content" android:minHeight="48dp"
                 android:paddingStart="20dp"
                 android:paddingEnd="20dp"
                 android:paddingTop="10dp"
@@ -117,5 +117,5 @@
                 android:textColor="?attr/color_on_main"
                 android:background="@drawable/mytel_primary_button_background" />
         </LinearLayout>
-    </LinearLayout>
+    </LinearLayout></ScrollView>
 </layout>

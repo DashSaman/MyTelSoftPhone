@@ -132,7 +132,9 @@ class ConversationsListFragment : AbstractMainFragment() {
      * conversation. Called by the Start chat dialog.
      */
     fun startOneToOneChatWith(address: org.linphone.core.Address) {
-        listViewModel.createOneToOneChatRoomWith(address)
+        coreContext.postOnCoreThread {
+            listViewModel.createOneToOneChatRoomWith(address)
+        }
     }
 
     override fun onCreateView(

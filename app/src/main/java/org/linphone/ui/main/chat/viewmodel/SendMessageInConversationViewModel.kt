@@ -31,6 +31,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.media.AudioFocusRequestCompat
 import java.text.SimpleDateFormat
 import java.util.Locale
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.launchIn
@@ -68,6 +69,8 @@ class SendMessageInConversationViewModel
     }
 
     val textToSend = MutableLiveData<String>()
+
+    private val sending = AtomicBoolean(false)
 
     val isFileTransferServerAvailable = MutableLiveData<Boolean>()
 
@@ -144,9 +147,9 @@ class SendMessageInConversationViewModel
 
     lateinit var chatRoom: ChatRoom
 
-    private var chatMessageToReplyTo: ChatMessage? = null
+    @Volatile private var chatMessageToReplyTo: ChatMessage? = null
 
-    private var chatMessageToEdit: ChatMessage? = null
+    @Volatile private var chatMessageToEdit: ChatMessage? = null
 
     private lateinit var voiceMessageRecorder: Recorder
 
@@ -310,120 +313,142 @@ class SendMessageInConversationViewModel
 
     @UiThread
     fun sendMessage() {
+        if (!coreContext.isReady() || !sending.compareAndSet(false, true)) return
+        val toSend = textToSend.value.orEmpty().trim()
+        val attachmentsToSend = attachments.value.orEmpty().toList()
+        val sendVoice = isVoiceRecording.value == true
+        val replySnapshot = chatMessageToReplyTo
+        val editSnapshot = chatMessageToEdit
         coreContext.postOnCoreThread {
-            val isBasicChatRoom: Boolean = chatRoom.hasCapability(ChatRoom.Capabilities.Basic.toInt())
+            try {
+                if (!::chatRoom.isInitialized) return@postOnCoreThread
+                if (toSend.isEmpty() && attachmentsToSend.isEmpty() && !sendVoice) return@postOnCoreThread
+                if (sendVoice && !::voiceMessageRecorder.isInitialized) return@postOnCoreThread
+                val isBasicChatRoom: Boolean = chatRoom.hasCapability(ChatRoom.Capabilities.Basic.toInt())
 
-            val messageToReplyTo = chatMessageToReplyTo
-            val messageToEdit = chatMessageToEdit
-            val message = if (messageToReplyTo != null) {
-                Log.i("$TAG Sending message as reply to [${messageToReplyTo.messageId}]")
-                chatRoom.createReplyMessage(messageToReplyTo)
-            } else if (messageToEdit != null) {
-                chatRoom.createReplacesMessage(messageToEdit)
-            } else if (textToSend.value.orEmpty().trim().isNotEmpty() &&
-                       attachments.value.orEmpty().isEmpty() &&
-                       isVoiceRecording.value != true
-            ) {
-                // Plain-text fast path: createMessage marks the message
-                // to-be-stored so outgoing-only history persists (leader
-                // correction 2026-11-12)
-                chatRoom.createMessage(textToSend.value.orEmpty().trim())
-            } else {
-                chatRoom.createEmptyMessage()
-            }
-            var contentAdded = false
+                val messageToReplyTo = replySnapshot
+                val messageToEdit = editSnapshot
+                val message = if (isBasicChatRoom && messageToReplyTo != null) {
+                    // PBX SIP SIMPLE transports one text body, without CPIM reply metadata.
+                    val quote = LinphoneUtils.getFormattedTextDescribingMessage(messageToReplyTo).toString().take(300)
+                    chatRoom.createMessageFromUtf8("> $quote\n$toSend")
+                } else if (messageToReplyTo != null) {
+                    Log.i("$TAG Sending message as reply to [${messageToReplyTo.messageId}]")
+                    chatRoom.createReplyMessage(messageToReplyTo)
+                } else if (messageToEdit != null) {
+                    chatRoom.createReplacesMessage(messageToEdit)
+                } else if (toSend.isNotEmpty() &&
+                           attachmentsToSend.isEmpty() &&
+                           !sendVoice
+                ) {
+                    // Plain-text fast path: createMessage marks the message
+                    // to-be-stored so outgoing-only history persists (leader
+                    // correction 2026-11-12)
+                    chatRoom.createMessageFromUtf8(toSend)
+                } else {
+                    chatRoom.createEmptyMessage()
+                }
+                var contentAdded = message.contents.isNotEmpty()
 
-            val toSend = textToSend.value.orEmpty().trim()
-            if (toSend.isNotEmpty() && message.contents.isEmpty()) {
-                message.addUtf8TextContent(toSend)
-                contentAdded = true
-            }
+                if (toSend.isNotEmpty() && message.contents.isEmpty()) {
+                    message.addUtf8TextContent(toSend)
+                    contentAdded = true
+                }
 
-            if (isVoiceRecording.value == true && voiceMessageRecorder.file != null) {
-                stopVoiceRecorder()
-                val content = voiceMessageRecorder.createContent()
-                if (content != null) {
-                    Log.i(
-                        "$TAG Voice recording content created, file name is ${content.name} and duration is ${content.fileDuration}"
-                    )
-                    if (isBasicChatRoom && contentAdded) {
-                        val voiceMessage = chatRoom.createEmptyMessage()
-                        voiceMessage.addContent(content)
-                        voiceMessage.toBeStored = true
-                        voiceMessage.send()
-                        messageSentEvent.postValue(Event(voiceMessage))
+                if (sendVoice && voiceMessageRecorder.file != null) {
+                    stopVoiceRecorder()
+                    val content = voiceMessageRecorder.createContent()
+                    if (content != null) {
+                        Log.i(
+                            "$TAG Voice recording content created, file name is ${content.name} and duration is ${content.fileDuration}"
+                        )
+                        if (isBasicChatRoom && contentAdded) {
+                            val voiceMessage = chatRoom.createEmptyMessage()
+                            voiceMessage.addContent(content)
+                            voiceMessage.toBeStored = true
+                            voiceMessage.send()
+                            messageSentEvent.postValue(Event(voiceMessage))
+                        } else {
+                            message.addContent(content)
+                        }
                     } else {
-                        message.addContent(content)
+                        Log.e("$TAG Voice recording content couldn't be created!")
                     }
                 } else {
-                    Log.e("$TAG Voice recording content couldn't be created!")
-                }
-            } else {
-                for (attachment in attachments.value.orEmpty()) {
-                    val content = Factory.instance().createContent()
+                    for (attachment in attachmentsToSend) {
+                        val content = Factory.instance().createContent()
 
-                    content.type = when (attachment.mimeType) {
-                        FileUtils.MimeType.Image -> "image"
-                        FileUtils.MimeType.Audio -> "audio"
-                        FileUtils.MimeType.Video -> "video"
-                        FileUtils.MimeType.Pdf -> "application"
-                        FileUtils.MimeType.PlainText -> "text"
-                        else -> "file"
-                    }
-                    content.subtype = if (attachment.mimeType == FileUtils.MimeType.PlainText) {
-                        "plain"
-                    } else {
-                        FileUtils.getExtensionFromFileName(attachment.fileName)
-                    }
-                    content.name = attachment.fileName
-                    // Let the file body handler take care of the upload
-                    content.filePath = attachment.path
+                        content.type = when (attachment.mimeType) {
+                            FileUtils.MimeType.Image -> "image"
+                            FileUtils.MimeType.Audio -> "audio"
+                            FileUtils.MimeType.Video -> "video"
+                            FileUtils.MimeType.Pdf -> "application"
+                            FileUtils.MimeType.PlainText -> "text"
+                            else -> "file"
+                        }
+                        content.subtype = if (attachment.mimeType == FileUtils.MimeType.PlainText) {
+                            "plain"
+                        } else {
+                            FileUtils.getExtensionFromFileName(attachment.fileName)
+                        }
+                        content.name = attachment.fileName
+                        // Let the file body handler take care of the upload
+                        content.filePath = attachment.path
 
-                    if (isBasicChatRoom && contentAdded) {
-                        val fileMessage = chatRoom.createEmptyMessage()
-                        fileMessage.addFileContent(content)
-                        fileMessage.toBeStored = true
-                        fileMessage.send()
-                        messageSentEvent.postValue(Event(fileMessage))
-                    } else {
-                        message.addFileContent(content)
-                        contentAdded = true
+                        if (isBasicChatRoom && contentAdded) {
+                            val fileMessage = chatRoom.createEmptyMessage()
+                            fileMessage.addFileContent(content)
+                            fileMessage.toBeStored = true
+                            fileMessage.send()
+                            messageSentEvent.postValue(Event(fileMessage))
+                        } else {
+                            message.addFileContent(content)
+                            contentAdded = true
+                        }
                     }
                 }
+
+                if (message.contents.isNotEmpty()) {
+                    Log.i("$TAG Sending message")
+                    // Outgoing-only basic-room messages can be dropped from the
+                    // DB when the default to-be-stored computation declines;
+                    // set it explicitly (supported SDK mechanism) so history
+                    // persists without requiring a reply first (leader
+                    // correction 2026-11-12)
+                    message.toBeStored = true
+                    message.send()
+                    messageSentEvent.postValue(Event(message))
+                }
+
+                Log.i("$TAG Message sent, re-setting defaults")
+                coreContext.postOnMainThread {
+                    // Preserve a new draft typed while the core was processing this send.
+                    if (textToSend.value.orEmpty().trim() == toSend) textToSend.value = ""
+                    // File selection can also change while a send is queued.
+                    val remaining = ArrayList(attachments.value.orEmpty().filterNot { it in attachmentsToSend })
+                    attachments.value = remaining
+                    maxNumberOfAttachmentsReached.value = remaining.size >= MAX_FILES_TO_ATTACH
+                }
+                isReplying.postValue(false)
+                isEditing.postValue(false)
+                isFileAttachmentsListOpen.postValue(false)
+                isParticipantsListOpen.postValue(false)
+                isEmojiPickerOpen.postValue(false)
+
+                if (::voiceMessageRecorder.isInitialized) {
+                    stopVoiceRecorder()
+                }
+                isVoiceRecording.postValue(false)
+
+                // Warning: do not delete files
+                chatMessageToReplyTo = null
+                chatMessageToEdit = null
+            } catch (error: Exception) {
+                Log.e("$TAG Message preparation failed (${error.javaClass.simpleName}); draft preserved")
+                showRedToast(R.string.mytel_message_send_failed, R.drawable.warning_circle)
+            } finally {
+                coreContext.postOnMainThread { sending.set(false) }
             }
-
-            if (message.contents.isNotEmpty()) {
-                Log.i("$TAG Sending message")
-                // Outgoing-only basic-room messages can be dropped from the
-                // DB when the default to-be-stored computation declines;
-                // set it explicitly (supported SDK mechanism) so history
-                // persists without requiring a reply first (leader
-                // correction 2026-11-12)
-                message.toBeStored = true
-                message.send()
-                messageSentEvent.postValue(Event(message))
-            }
-
-            Log.i("$TAG Message sent, re-setting defaults")
-            textToSend.postValue("")
-            isReplying.postValue(false)
-            isEditing.postValue(false)
-            isFileAttachmentsListOpen.postValue(false)
-            isParticipantsListOpen.postValue(false)
-            isEmojiPickerOpen.postValue(false)
-
-            if (::voiceMessageRecorder.isInitialized) {
-                stopVoiceRecorder()
-            }
-            isVoiceRecording.postValue(false)
-
-            // Warning: do not delete files
-            val attachmentsList = arrayListOf<FileModel>()
-            attachments.postValue(attachmentsList)
-
-            chatMessageToReplyTo = null
-            chatMessageToEdit = null
-            maxNumberOfAttachmentsReached.postValue(false)
         }
     }
 

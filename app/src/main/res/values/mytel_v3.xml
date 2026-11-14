@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string translatable="false" name="mytel_connection_connecting">Connecting</string>
+    <string translatable="false" name="mytel_connection_no_account">No account</string>
+    <string translatable="false" name="mytel_new_call">New call</string>
+    <string translatable="false" name="mytel_video_call">Video call</string>
+    <string translatable="false" name="mytel_clear_number">Clear number</string>
+    <string translatable="false" name="mytel_dialer_caption">Enter an extension or phone number</string>
+    <string translatable="false" name="mytel_message_send_failed">Could not send the message. Your draft has been kept; please try again.</string>
+</resources>

@@ -165,6 +165,7 @@ class NotificationBroadcastReceiver : BroadcastReceiver() {
 
             if (action == NotificationsManager.INTENT_REPLY_MESSAGE_NOTIF_ACTION) {
                 val msg = room.createMessageFromUtf8(reply)
+                msg.toBeStored = true
                 msg.userData = notificationId
                 msg.addListener(coreContext.notificationsManager.chatMessageListener)
                 msg.send()

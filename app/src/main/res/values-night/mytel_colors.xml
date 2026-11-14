@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="mytel_page_bg">#06101C</color>
+    <color name="mytel_text">#E8F1FC</color>
+    <color name="mytel_border">#364860</color>
+</resources>
