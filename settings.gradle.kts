@@ -62,10 +62,14 @@ dependencyResolutionManagement {
         }
         google()
 
-        maven {
-            url = uri("https://jitpack.io")
-            content {
-                includeGroup ("com.github.chrisbanes")
+        // Resolve PhotoView only from its publisher. A proxy can expose its
+        // POM without the AAR, which prevents Gradle falling back afterwards.
+        exclusiveContent {
+            forRepository {
+                maven { url = uri("https://jitpack.io") }
+            }
+            filter {
+                includeGroup("com.github.chrisbanes")
             }
         }
 
