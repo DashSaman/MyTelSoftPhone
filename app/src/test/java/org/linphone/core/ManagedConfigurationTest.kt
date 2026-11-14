@@ -122,6 +122,7 @@ class ManagedConfigurationTest {
     @Test
     fun `empty restrictions trigger resetConfig and post the removed event`() {
         pushRestrictions()
+        every { corePreferencesMock.isMdmConfigured } returns true
         every { core.globalState } returns GlobalState.Off
 
         ManagedConfiguration.applyMdmConfigToCore(context, core)
@@ -130,6 +131,17 @@ class ManagedConfigurationTest {
         verify { config.reload() }
         verify { removedEvent.postValue(any()) }
         verify(exactly = 0) { appliedEvent.postValue(any()) }
+    }
+
+    @Test
+    fun `empty restrictions preserve personal account configuration when no MDM was applied`() {
+        pushRestrictions()
+        every { corePreferencesMock.isMdmConfigured } returns false
+
+        ManagedConfiguration.applyMdmConfigToCore(context, core)
+
+        verify(exactly = 0) { corePreferencesMock.resetConfigToDefault() }
+        verify(exactly = 0) { config.reload() }
     }
 
     @Test
