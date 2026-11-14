@@ -827,7 +827,9 @@ class MainActivity : GenericActivity() {
                 Log.i("$TAG App was granted ROLE_CALL_REDIRECTION")
             } else {
                 Log.w("$TAG App wasn't granted ROLE_CALL_REDIRECTION, toggling OFF Call Redirection setting")
-                corePreferences.useCallRedirectionService = false
+                coreContext.postOnCoreThread {
+                    corePreferences.useCallRedirectionService = false
+                }
             }
         }
         super.onActivityResult(requestCode, resultCode, data)
@@ -1248,7 +1250,9 @@ class MainActivity : GenericActivity() {
             }
         } else {
             Log.e("$TAG Call Redirection feature requires Android Q (API 29) or higher")
-            corePreferences.useCallRedirectionService = false
+            coreContext.postOnCoreThread {
+                corePreferences.useCallRedirectionService = false
+            }
         }
     }
 }

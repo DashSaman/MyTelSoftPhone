@@ -43,19 +43,23 @@ class TelecomConnectionService : ConnectionService() {
             return Connection.createCanceledConnection()
         }
 
-        if (coreContext.core.callsNb == 0) {
-            val address = coreContext.core.interpretUrl(uri.toString(), true)
-            if (address != null) {
-                Log.i("$TAG Starting call to [${address.asStringUriOnly()}]")
-                coreContext.startCall(address = address, skipNetworkReachabilityTest = true)
-                // Required here to show activity in case notification times out
-                // or if confirmation notification is disabled in settings
-                coreContext.showCallActivity()
+        coreContext.postOnCoreThread { core ->
+            if (core.callsNb == 0) {
+                val address = core.interpretUrl(uri.toString(), true)
+                if (address != null) {
+                    Log.i("$TAG Starting call to [${address.asStringUriOnly()}]")
+                    coreContext.startCall(address = address, skipNetworkReachabilityTest = true)
+                    // Required here to show activity in case notification times out
+                    // or if confirmation notification is disabled in settings
+                    coreContext.postOnMainThread {
+                        coreContext.showCallActivity()
+                    }
+                } else {
+                    Log.e("$TAG Failed to parse [$uri] as a SIP address!")
+                }
             } else {
-                Log.e("$TAG Failed to parse [$uri] as a SIP address!")
+                Log.w("$TAG At least another call exists, do nothing")
             }
-        } else {
-            Log.w("$TAG At least another call exists, do nothing")
         }
 
         return Connection.createCanceledConnection()
