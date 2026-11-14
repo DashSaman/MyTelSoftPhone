@@ -38,12 +38,14 @@ import org.linphone.core.tools.Log
 import org.linphone.ui.GenericViewModel
 import org.linphone.utils.AppUtils
 import org.linphone.utils.Event
+import org.linphone.utils.SipLoginAttempt
 
 open class AccountLoginViewModel
     @UiThread
     constructor() : GenericViewModel() {
     companion object {
         private const val TAG = "[Account Login ViewModel]"
+        private const val REGISTRATION_TIMEOUT_MS = 20_000L
     }
 
     val showBackButton = MutableLiveData<Boolean>()
@@ -97,8 +99,10 @@ open class AccountLoginViewModel
         transportType.value = 0
     }
 
-    private lateinit var newlyCreatedAuthInfo: AuthInfo
-    private lateinit var newlyCreatedAccount: Account
+    private val attempts = SipLoginAttempt()
+    private var pendingAttempt: Long? = null
+    private var newlyCreatedAuthInfo: AuthInfo? = null
+    private var newlyCreatedAccount: Account? = null
 
     private val coreListener = object : CoreListenerStub() {
         @WorkerThread
@@ -108,20 +112,17 @@ open class AccountLoginViewModel
             state: RegistrationState?,
             message: String
         ) {
-            if (account == newlyCreatedAccount) {
+            val attempt = pendingAttempt ?: return
+            if (account == newlyCreatedAccount && attempts.isCurrent(attempt)) {
                 Log.i("$TAG Newly created account registration state is [$state] ($message)")
 
                 if (state == RegistrationState.Ok) {
+                    if (!attempts.finish(attempt)) return
                     registrationInProgress.postValue(false)
-                    core.removeListener(this)
-
-                    // Set new account as default
-                    core.defaultAccount = newlyCreatedAccount
+                    core.defaultAccount = account
+                    releasePendingAccount(core, attempt, removeAccount = false)
                     accountLoggedInEvent.postValue(Event(core.accountList.size == 1))
                 } else if (state == RegistrationState.Failed) {
-                    registrationInProgress.postValue(false)
-                    core.removeListener(this)
-
                     val error = when (account.error) {
                         Reason.Forbidden -> {
                             AppUtils.getString(R.string.assistant_account_login_forbidden_error)
@@ -133,11 +134,7 @@ open class AccountLoginViewModel
                             )
                         }
                     }
-                    accountLoginErrorEvent.postValue(Event(error))
-
-                    Log.e("$TAG Account failed to REGISTER [$message], removing it")
-                    core.removeAuthInfo(newlyCreatedAuthInfo)
-                    core.removeAccount(newlyCreatedAccount)
+                    failLogin(core, attempt, error)
                 }
             }
         }
@@ -175,128 +172,112 @@ open class AccountLoginViewModel
 
     @UiThread
     fun login() {
+        if (!coreContext.isReady()) return
+        val attempt = attempts.begin() ?: return
+        registrationInProgress.value = true
+        val userInput = sipIdentity.value.orEmpty().trim()
+        val passwordValue = password.value.orEmpty()
+        val serverValue = serverAddress.value.orEmpty().trim().ifEmpty { corePreferences.defaultDomain }
+        val portValue = serverPort.value.orEmpty().trim()
+        val selectedTransport = when (transportType.value) {
+            1 -> TransportType.Tcp
+            2 -> TransportType.Udp
+            else -> TransportType.Tls
+        }
+        val prefix = internationalPrefix.value.orEmpty().trim().removePrefix("+")
+        val isoCountryCode = internationalPrefixIsoCountryCode.value.orEmpty()
         coreContext.postOnCoreThread { core ->
-            core.loadConfigFromXml(corePreferences.linphoneDefaultValuesPath)
-
-            val userInput = sipIdentity.value.orEmpty().trim()
-            val serverValue = serverAddress.value.orEmpty().trim()
-                .ifEmpty { corePreferences.defaultDomain }
-            val identity = if (userInput.startsWith("sip:")) {
-                if (userInput.contains("@")) {
-                    userInput
-                } else {
-                    "$userInput@$serverValue"
+            if (!attempts.isCurrent(attempt)) return@postOnCoreThread
+            try {
+                core.loadConfigFromXml(corePreferences.linphoneDefaultValuesPath)
+                val serverUri = if (serverValue.startsWith("sip:", true) || serverValue.startsWith("sips:", true)) serverValue else "sip:$serverValue"
+                val serverAddr = Factory.instance().createAddress(serverUri)
+                val port = portValue.toIntOrNull()
+                if (serverAddr == null || serverAddr.domain.isNullOrBlank() ||
+                    (portValue.isNotEmpty() && (port == null || port !in 1..65535))
+                ) {
+                    failLogin(core, attempt, AppUtils.getString(R.string.assistant_login_cant_parse_address_toast))
+                    return@postOnCoreThread
                 }
-            } else {
-                if (userInput.contains("@")) {
-                    "sip:$userInput"
-                } else {
-                    "sip:$userInput@$serverValue"
+                if (port != null) serverAddr.port = port
+                serverAddr.transport = selectedTransport
+                val inputWithoutScheme = userInput.replaceFirst(Regex("(?i)^sips?:"), "")
+                val identity = if (inputWithoutScheme.contains("@")) "sip:$inputWithoutScheme" else "sip:$inputWithoutScheme@${serverAddr.domain}"
+                val identityAddress = Factory.instance().createAddress(identity)
+                val user = identityAddress?.username
+                if (identityAddress == null || user.isNullOrBlank()) {
+                    failLogin(core, attempt, AppUtils.getString(R.string.assistant_login_cant_parse_address_toast))
+                    return@postOnCoreThread
                 }
-            }
-            Log.i("$TAG Computed identity is [$identity] from user input [$userInput]")
-
-            val identityAddress = Factory.instance().createAddress(identity)
-            if (identityAddress == null) {
-                Log.e("$TAG Can't parse [$identity] as Address!")
-                showRedToast(R.string.assistant_login_cant_parse_address_toast, R.drawable.warning_circle)
-                return@postOnCoreThread
-            }
-
-            val accounts = core.accountList
-            val found = accounts.find {
-                it.params.identityAddress?.weakEqual(identityAddress) == true
-            }
-            if (found != null) {
-                Log.w("$TAG An account with the same identity address [${identityAddress.asStringUriOnly()}] already exists, do not add it again!")
-                showRedToast(R.string.assistant_account_login_already_connected_error, R.drawable.warning_circle)
-                return@postOnCoreThread
-            }
-
-            val user = identityAddress.username
-            if (user == null) {
-                Log.e(
-                    "$TAG Address [${identityAddress.asStringUriOnly()}] doesn't contains an username!"
-                )
-                showRedToast(R.string.assistant_login_address_without_username_toast, R.drawable.warning_circle)
-                return@postOnCoreThread
-            }
-
-            val domain = identityAddress.domain
-
-            // MyTel: purge stale credentials for this identity before adding
-            // the new ones — a previously failed attempt (typo'd password)
-            // must not shadow the fresh password in the core's auth list.
-            // Only entries whose domain EXACTLY matches are removed: entries
-            // with a null/other domain may belong to TURN/CardDAV and must
-            // never be touched by a SIP login.
-            for (existing in core.authInfoList) {
-                if (existing.username == user && existing.domain == domain) {
-                    Log.i("$TAG Removing stale auth info for [$user] on domain [${existing.domain}]")
-                    core.removeAuthInfo(existing)
+                if (core.accountList.any { it.params.identityAddress?.weakEqual(identityAddress) == true }) {
+                    failLogin(core, attempt, AppUtils.getString(R.string.assistant_account_login_already_connected_error))
+                    return@postOnCoreThread
                 }
-            }
-
-            newlyCreatedAuthInfo = Factory.instance().createAuthInfo(
-                user,
-                null,
-                password.value.orEmpty().trim(),
-                null,
-                null,
-                domain
-            )
-            core.addAuthInfo(newlyCreatedAuthInfo)
-
-            val accountParams = core.createAccountParams()
-            accountParams.identityAddress = identityAddress
-
-            // MyTel: explicit server address + port + transport, so custom
-            // SBC ports such as 57306 are actually used for registration.
-            val portValue = serverPort.value.orEmpty().trim()
-            val transport = when (transportType.value) {
-                1 -> TransportType.Tcp
-                2 -> TransportType.Udp
-                else -> TransportType.Tls
-            }
-            val serverUri = StringBuilder("sip:").append(serverValue.removePrefix("sip:"))
-            if (portValue.isNotEmpty()) {
-                serverUri.append(":").append(portValue)
-            }
-            val serverAddr = Factory.instance().createAddress(serverUri.toString())
-            if (serverAddr != null) {
-                serverAddr.transport = transport
+                val accountParams = core.createAccountParams()
+                accountParams.identityAddress = identityAddress
                 accountParams.serverAddress = serverAddr
-                Log.i("$TAG Server address set to [${serverAddr.asStringUriOnly()}]")
-            } else {
-                Log.e("$TAG Failed to parse server address [$serverUri], falling back to domain defaults")
-            }
-
-            val prefix = internationalPrefix.value.orEmpty().trim()
-            val isoCountryCode = internationalPrefixIsoCountryCode.value.orEmpty()
-            if (prefix.isNotEmpty()) {
-                val prefixDigits = if (prefix.startsWith("+")) {
-                    prefix.substring(1)
-                } else {
-                    prefix
-                }
-                if (prefixDigits.isNotEmpty()) {
-                    Log.i(
-                        "$TAG Setting international prefix [$prefixDigits]($isoCountryCode) in account params"
-                    )
-                    accountParams.internationalPrefix = prefixDigits
+                if (prefix.isNotEmpty()) {
+                    accountParams.internationalPrefix = prefix
                     accountParams.internationalPrefixIsoCountryCode = isoCountryCode
                 }
+                // Keep credentials and settings belonging to existing accounts.
+                // Failed/cancelled attempts remove only the objects created here.
+                newlyCreatedAuthInfo = Factory.instance().createAuthInfo(
+                    user, null, passwordValue, null, null, identityAddress.domain
+                )
+                newlyCreatedAccount = core.createAccount(accountParams)
+                pendingAttempt = attempt
+                core.addListener(coreListener)
+                newlyCreatedAuthInfo?.let { core.addAuthInfo(it) }
+                newlyCreatedAccount?.let { core.addAccount(it) }
+                coreContext.postOnCoreThreadDelayed({ currentCore ->
+                    failLogin(currentCore, attempt, AppUtils.getString(R.string.mytel_login_timeout))
+                }, REGISTRATION_TIMEOUT_MS)
+            } catch (error: Exception) {
+                Log.e("$TAG Login setup failed (${error.javaClass.simpleName})")
+                failLogin(core, attempt, AppUtils.getString(R.string.mytel_login_setup_failed))
             }
-
-            newlyCreatedAccount = core.createAccount(accountParams)
-
-            registrationInProgress.postValue(true)
-            core.addListener(coreListener)
-            Log.i(
-                "$TAG Trying to log in account with SIP identity [${identityAddress.asStringUriOnly()}]"
-            )
-            core.addAccount(newlyCreatedAccount)
         }
+    }
+
+    @WorkerThread
+    private fun failLogin(core: Core, attempt: Long, message: String) {
+        if (!attempts.finish(attempt)) return
+        releasePendingAccount(core, attempt, removeAccount = true)
+        registrationInProgress.postValue(false)
+        accountLoginErrorEvent.postValue(Event(message))
+    }
+
+    @WorkerThread
+    private fun releasePendingAccount(core: Core, attempt: Long, removeAccount: Boolean) {
+        if (pendingAttempt != attempt) return
+        core.removeListener(coreListener)
+        if (removeAccount) {
+            newlyCreatedAccount?.let { core.removeAccount(it) }
+            newlyCreatedAuthInfo?.let { core.removeAuthInfo(it) }
+        }
+        newlyCreatedAccount = null
+        newlyCreatedAuthInfo = null
+        pendingAttempt = null
+    }
+
+    @UiThread
+    fun cancelLogin() {
+        val attempt = attempts.cancel() ?: return
+        registrationInProgress.value = false
+        coreContext.postOnCoreThread { core ->
+            releasePendingAccount(core, attempt, removeAccount = true)
+        }
+    }
+
+    override fun onCleared() {
+        val attempt = attempts.cancel()
+        if (attempt != null && coreContext.isReady()) {
+            coreContext.postOnCoreThread { core ->
+                releasePendingAccount(core, attempt, removeAccount = true)
+            }
+        }
+        super.onCleared()
     }
 
     @UiThread

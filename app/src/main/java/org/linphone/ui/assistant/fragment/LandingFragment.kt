@@ -28,6 +28,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.annotation.UiThread
+import androidx.activity.OnBackPressedCallback
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.navGraphViewModels
@@ -80,8 +81,24 @@ class LandingFragment : GenericFragment() {
         binding.forgottenPassword.visibility = View.GONE
 
         binding.setBackClickListener {
+            viewModel.cancelLogin()
             requireActivity().finish()
         }
+
+        requireActivity().onBackPressedDispatcher.addCallback(
+            viewLifecycleOwner,
+            object : OnBackPressedCallback(true) {
+                override fun handleOnBackPressed() {
+                    if (viewModel.registrationInProgress.value == true) {
+                        viewModel.cancelLogin()
+                    } else {
+                        isEnabled = false
+                        requireActivity().onBackPressedDispatcher.onBackPressed()
+                        isEnabled = true
+                    }
+                }
+            }
+        )
 
         binding.setHelpClickListener {
             if (findNavController().currentDestination?.id == R.id.landingFragment) {

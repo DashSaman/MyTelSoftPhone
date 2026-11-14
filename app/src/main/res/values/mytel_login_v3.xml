@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string translatable="false" name="mytel_login_timeout">The server did not respond. Check the server, port and transport, then try again.</string>
+    <string translatable="false" name="mytel_login_setup_failed">Could not connect. Check your account settings and try again.</string>
+</resources>

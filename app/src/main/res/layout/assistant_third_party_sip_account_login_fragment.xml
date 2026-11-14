@@ -420,6 +420,20 @@
             layout="@layout/operation_in_progress"
             bind:visibility="@{viewModel.registrationInProgress}" />
 
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/cancel_registration"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|center_horizontal"
+            android:layout_marginBottom="32dp"
+            android:minHeight="48dp"
+            android:paddingHorizontal="24dp"
+            android:text="@string/dialog_cancel"
+            android:textColor="?attr/color_main1_500"
+            android:background="@drawable/shape_dialog_background"
+            android:onClick="@{() -> viewModel.cancelLogin()}"
+            android:visibility="@{viewModel.registrationInProgress ? View.VISIBLE : View.GONE, default=gone}" />
+
     </androidx.coordinatorlayout.widget.CoordinatorLayout>
 
 </layout>

@@ -132,7 +132,7 @@ class ServerDirectoryManager(private val coreContext: CoreContext) {
             return
         }
         if (!url.startsWith("https://")) {
-            Log.e("$TAG Directory URL must be HTTPS, ignoring [$url], directory cleared")
+            Log.e("$TAG Directory URL must be HTTPS, directory cleared")
             clearDirectory(core)
             notifyChanged()
             return
@@ -157,7 +157,7 @@ class ServerDirectoryManager(private val coreContext: CoreContext) {
                     return@postOnCoreThread
                 }
                 when (val result = fetched) {
-                    null -> Log.e("$TAG Directory fetch failed for [$url], keeping previous snapshot")
+                    null -> Log.e("$TAG Directory fetch failed, keeping previous snapshot")
                     is FetchResult.Invalid -> {
                         Log.e("$TAG Directory body invalid or oversized, keeping previous snapshot")
                     }
@@ -318,7 +318,7 @@ class ServerDirectoryManager(private val coreContext: CoreContext) {
             connection.disconnect()
             FetchResult.Body(output.toString("UTF-8"))
         } catch (e: Exception) {
-            Log.e("$TAG Directory fetch error: ${e.message}")
+            Log.e("$TAG Directory fetch error (${e.javaClass.simpleName})")
             connection?.disconnect()
             null
         }

@@ -30,6 +30,7 @@ import android.view.ViewGroup
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.OnBackPressedCallback
 import androidx.annotation.UiThread
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
@@ -110,8 +111,24 @@ class ThirdPartySipAccountLoginFragment : GenericFragment() {
         observeToastEvents(viewModel)
 
         binding.setBackClickListener {
+            viewModel.cancelLogin()
             goBack()
         }
+
+        requireActivity().onBackPressedDispatcher.addCallback(
+            viewLifecycleOwner,
+            object : OnBackPressedCallback(true) {
+                override fun handleOnBackPressed() {
+                    if (viewModel.registrationInProgress.value == true) {
+                        viewModel.cancelLogin()
+                    } else {
+                        isEnabled = false
+                        requireActivity().onBackPressedDispatcher.onBackPressed()
+                        isEnabled = true
+                    }
+                }
+            }
+        )
 
         binding.setOutboundProxyTooltipClickListener {
             showOutboundProxyInfoDialog()
