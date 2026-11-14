@@ -1037,7 +1037,7 @@ class CoreContext
 
     @AnyThread
     fun postOnMainThreadDelayed(
-        @WorkerThread lambda: () -> Unit,
+        @UiThread lambda: () -> Unit,
         delay: Long
     ) {
         mainThread.postDelayed({

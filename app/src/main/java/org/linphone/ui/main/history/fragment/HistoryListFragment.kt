@@ -237,8 +237,10 @@ class HistoryListFragment : AbstractMainFragment() {
 
         adapter.callAddressClickedEvent.observe(viewLifecycleOwner) {
             it.consume { address ->
-                Log.i("$TAG Starting call to [${address.asStringUriOnly()}]")
-                coreContext.startAudioCall(address)
+                coreContext.postOnCoreThread {
+                    Log.i("$TAG Starting call to [${address.asStringUriOnly()}]")
+                    coreContext.startAudioCall(address)
+                }
             }
         }
 

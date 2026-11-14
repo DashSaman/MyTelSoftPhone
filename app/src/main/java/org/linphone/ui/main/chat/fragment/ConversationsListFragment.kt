@@ -229,8 +229,10 @@ class ConversationsListFragment : AbstractMainFragment() {
 
         adapter.createConversationWithAddressClickedEvent.observe(viewLifecycleOwner) {
             it.consume { address ->
-                Log.i("$TAG Creating 1-1 conversation with to [${address.asStringUriOnly()}]")
-                listViewModel.createOneToOneChatRoomWith(address)
+                coreContext.postOnCoreThread {
+                    Log.i("$TAG Creating 1-1 conversation with [${address.asStringUriOnly()}]")
+                    listViewModel.createOneToOneChatRoomWith(address)
+                }
             }
         }
 

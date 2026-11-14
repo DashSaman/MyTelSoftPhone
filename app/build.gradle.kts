@@ -106,6 +106,10 @@ android {
         versionCode = 30000
         versionName = mytelVersion
 
+        // Match the declared English-only interface. Message/contact text
+        // remains Unicode; unused inherited UI translations are not shipped.
+        resourceConfigurations += "en"
+
         manifestPlaceholders["appAuthRedirectScheme"] = packageName
 
         ndk {
@@ -223,7 +227,7 @@ android {
     }
 
     lint {
-        abortOnError = false
+        abortOnError = true
     }
 
     testOptions {
