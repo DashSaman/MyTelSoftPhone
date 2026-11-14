@@ -123,4 +123,27 @@ class MyTelNumberNormalizerTest {
     fun empty_input_is_unchanged() {
         assertNormalized("", "")
     }
+
+    @Test
+    fun non_numeric_country_prefix_is_not_rewritten() {
+        assertNormalized("+98abcdefghij", "+98abcdefghij")
+        assertNormalized("0098123456789x", "0098123456789x")
+    }
+
+    @Test
+    fun persian_feature_codes_use_ascii_digits() {
+        assertNormalized("*۲۱*۳۰۱#", "*21*301#")
+        assertNormalized("#۱۲۳", "#123")
+    }
+
+    @Test
+    fun pasted_rtl_phone_number_drops_invisible_direction_marks() {
+        assertNormalized("\u200E+98\u200F 912\u202F123\u00A04567", "09121234567")
+    }
+
+    @Test
+    fun telephone_uri_is_dialable_without_changing_sip_uris() {
+        assertNormalized("tel:+989121234567", "09121234567")
+        assertNormalized("sips:2@example.org", "sips:2@example.org")
+    }
 }
