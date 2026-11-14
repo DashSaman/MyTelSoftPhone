@@ -22,8 +22,23 @@ terms. All upstream copyright notices remain valid.
   not committed)
 - Output APK renamed to `MyTelSoftPhone-<buildType>-<version>.apk`
 
-The Linphone SDK binaries are consumed unmodified from the official Belledonne
-maven repository (https://download.linphone.org/maven_repository).
+The Android Linphone SDK binaries are consumed from the pinned official
+Belledonne Maven dependency recorded in `gradle/libs.versions.toml`.
+The separate Windows release uses the Linphone SDK dependency distribution
+with a locally rebuilt liblinphone/C++ wrapper. Its exact source revision,
+local build patch, corresponding SDK source archive and license are supplied
+with the release. The manifest explicitly lists unavailable external source
+pins; prebuilt dependency correspondence has not been independently established.
+The snapshot is not represented as a complete offline-rebuildable SDK distribution.
+The SDK source contains AGPLv3-licensed components; all
+component notices and third-party licenses remain applicable. Application
+licensing must not be read as relicensing SDK components.
+
+MytellPhone v3 modifications include call/input routing, Basic SIP chat storage,
+registration lifecycle and cancellation, theme/layout corrections, directory
+request safety, backup exclusions and release validation. The Windows package
+does not bundle the separately downloaded Cisco OpenH264 binary. Its use is
+subject to the [Cisco binary license](https://www.openh264.org/BINARY_LICENSE.txt).
 
 "MyTel", "mytel.one" and the MyTel logo are trademarks of their owner; the logo
 imagery in this repository is a derivative rendering of the public site identity

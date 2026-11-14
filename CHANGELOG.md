@@ -10,7 +10,25 @@ Group changes to describe their impact on the project, as follows:
     Fixed for any bug fixes.
     Security to invite users to upgrade in case of vulnerabilities.
 
-## [6.3.0] - Unreleased
+## MytellPhone [3.0.0] - 2026-11-14
+
+### Fixed
+- Desktop call routing from the dialer/search field and conversation panel visibility.
+- Connection status updates, destination normalization, basic message persistence and duplicate submissions.
+- Cancellable sign-in attempts with bounded wait, stale callback rejection and lifecycle cleanup.
+- Server directory deadlock, URL-secret logging and response bounds.
+- Android provisioning precedence and sensitive system backup defaults.
+- SDK thread access violations, strict Android lint enforcement and unused locale plural errors.
+- Missing Windows Qt video renderer, unreadable call menus/history cards and contact list bounds.
+
+### Changed
+- Consistent light/dark dialogs, responsive entry screens and simpler account setup.
+- Windows System/Light/Dark appearance control.
+- Production signing enforcement, validation CI, Windows packaging/source and release evidence.
+
+The v3 verification record documents executed checks and remaining limits. Entries below describe the inherited upstream Linphone history, with upstream version numbers.
+
+## [6.3.0] - Unreleased (upstream)
 
 ### Added
 - Client secret support to OIDC authentication

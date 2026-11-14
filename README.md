@@ -1,142 +1,68 @@
-<p align="center"><img src="docs/mytellphone-preview.gif" alt="Android app preview — MytellPhone welcome, login, chat and calls screens animating inside a phone frame"></p>
-
 <p align="center"><img src="docs/mytellphone-hero.png" alt="MytellPhone — Calls and messages for your team"></p>
 
-# MytellPhone
+# MytellPhone 3
 
-Professional SIP softphone for **MyTel** ([mytel.one](https://mytel.one)) —
-**Android + Windows, v2.1.0**.
+SIP calling and team messages for **Android and Windows**, built on the Linphone engine and the [MyTel](https://mytel.one) identity.
 
-MytellPhone is a full-featured VoIP client: audio & video calls, multi-call
-management, transfer, conference, call history, contacts, **1-to-1 text chat**
-(SIP SIMPLE), SIP over UDP/TCP/TLS, automatic server detection, and a
-persistent background keep-alive service so incoming calls are never missed —
-including on the lock screen, answerable without unlocking the phone.
+[Download v3.0.0](https://github.com/DashSaman/MyTelSoftPhone/releases/tag/v3.0.0) · [Verification record](docs/releases/v3.0.0/VERIFICATION.md) · [Windows build tools](release/windows/README.md)
 
-Built on the [Linphone](https://linphone.org) engine and branded with the
-mytel.one identity (navy `#001622`, blue `#0A67FF`, orange `#FFAB2E`).
+## What changed in v3
 
-| Splash | Login | Chat | Windows |
-|---|---|---|---|
-| ![Splash](docs/screenshots/v21-splash.png) | ![Login](docs/screenshots/v21-login.png) | ![Chat](docs/screenshots/v21-chat.png) | ![Windows chat](docs/screenshots/v21-windows-chat.png) |
+- Reliable direct dialing: shared destination validation, Persian/Arabic digits, pasted phone numbers, extension dialing and explicit audio/video actions.
+- Clear connection status and bounded, cancellable account setup. Late callbacks cannot complete an abandoned sign-in attempt.
+- Basic SIP chat fixes: visible conversation panes, stored outgoing messages, UTF-8 text and duplicate-send protection.
+- Consistent light/dark surfaces and practical layouts. Windows adds System, Light and Dark appearance choices; Android follows its appearance settings.
+- Safer server directory access, bounded responses and redacted URL logs. Android excludes account and message data from system backups.
+- Signed Android release enforcement, strict lint, updated CI checks, matching application source archives, license notices and SHA-256 checksums.
 
-## Highlights (v2.1.0)
+The release verification record distinguishes automated tests, visual review, actual PBX interoperability and checks that were not performed. Passing checks do not guarantee that every device, PBX or network condition is defect-free.
 
-- **Branded experience end-to-end**: navy welcome & login with the official
-  mytel.one ring emblem, orange accents and tagline — matching the website on
-  the splash screen, the app icon and the in-app header.
-- **English UI on every device** (pinned per-app locale); chat content in any
-  language keeps working.
-- **Login asks what a phone user actually knows**: extension, password, server
-  address, port, and protocol/transport — **SIP / TLS, SIP / TCP, SIP / UDP**.
-- **Automatic server detection** (Zoiper-style): one tap probes standard ports
-  (5060 / 5061 + any custom port) with real SIP requests over TLS, TCP and UDP,
-  ranks the working combinations (verified SIP replies only) and fills the
-  login form for you.
-- **Chat with the contact center**: standard SIP SIMPLE text messaging with
-  delivery state, persisted history and background delivery — messages are sent
-  as plain `text/plain`, readable by any SIP peer that supports SIP MESSAGE
-  (Asterisk/Issabel requires MESSAGE routing to be enabled server-side —
-  a short config snippet ships with the release docs).
-- **SIP User-Agent is exactly `Mytell`** — whitelisted in the MyTel firewall.
-- **Never miss a call**: requests the Android *battery-optimization exemption*
-  on first launch and runs a persistent keep-alive service, so registration
-  survives in the background even without push notifications.
-- **Lock-screen calling**: incoming calls wake the screen and can be answered
-  without entering the PIN, exactly like a GSM call.
-- Fixed in 2.1.0: accounts created through the login form no longer inherit
-  linphone.org-only chat defaults (chat used to hang on plain PBXs); existing
-  v2.0.0 accounts are migrated automatically on first launch.
+## Install
+
+| Platform | Package | Requirement |
+|---|---|---|
+| Android | `MytellPhone-v3.0.0.apk` | Android 9+, ARM64 or ARMv7 |
+| Windows | `MytellPhone-v3.0.0-win64.zip` | Windows 10/11 x64; extract and run `mytellphone.exe` |
+
+Keep the existing Android installation when upgrading so its account and message data remain available. Release updates use the existing production signing key. On Windows, the portable executable uses the existing application profile in `%LOCALAPPDATA%\mytellphone`; keep that directory when replacing the application folder. If the Microsoft C++ runtime is missing, use the supplied official `vc_redist.x64.exe`.
+
+Enter your **extension**, **password** and **SIP server**. Transport, port and other account options are available when needed. Use **Calls** to dial, **Chats** to message an extension, and **Settings** for appearance and audio devices.
+
+## Capabilities and PBX requirements
+
+- SIP accounts over UDP, TCP and TLS; server transport detection.
+- Audio calls, call history, contacts, hold, transfer, multi-call controls and voicemail indications through the Linphone engine.
+- One-to-one text chat using SIP SIMPLE. The PBX must route SIP `MESSAGE` separately from the call dialplan. A successful server acknowledgement is not a read receipt or a guarantee of offline delivery.
+- Video calling where both peers, their codecs and the PBX permit it. VP8 is available on Windows; H.264 uses the separately downloaded Cisco codec through the application's codec controls. Android video codec availability depends on the device.
+- Calling external phone numbers uses the PBX's outbound routes and trunk. The application does not supply a PSTN account or change provider restrictions.
+- Android foreground keep-alive and call notifications. Background reception depends on OS permissions, battery restrictions, network reachability and PBX registration; it cannot be guaranteed on every device. FCM push additionally requires an operator-configured push service.
+
+SIP transport security and media encryption depend on your account/PBX configuration. SIP SIMPLE messages are not represented as end-to-end encrypted. This application uses SIP, not IAX2.
 
 ## فارسی
 
-**مای‌تل‌فون (MytellPhone)** — نرم‌افزار تلفن سازمانی مای‌تل برای اندروید و ویندوز.
+مای‌تل‌فون ۳ برای تماس و گفت‌وگوی سازمانی در اندروید و ویندوز است. برای ورود، داخلی، رمز و آدرس سرور را وارد کنید. رابط برنامه انگلیسی است و پیام فارسی پشتیبانی می‌شود. شماره‌های فارسی و قالب‌های معمول شمارهٔ ایران در شماره‌گیر پردازش می‌شوند.
 
-- زبان رابط برنامه انگلیسی است؛ متن گفتگوها به هر زبانی — از جمله فارسی — کامل پشتیبانی می‌شود
-- صفحهٔ ورود: شمارهٔ داخلی، گذرواژه، نشانی سرور، پورت و انتخاب پروتکل — **سیپ روی TLS یا TCP یا UDP**
-- **تشخیص خودکار سرور**: با یک لمس، پورت‌های استاندارد و پورت دلخواه شما با درخواست واقعی سیپ روی هر سه حمل‌ونقل آزمایش می‌شود
-- **گفتگوی متنی با مرکز تماس**: استاندارد سیپ، تاریخچهٔ ماندگار و نشان وضعیت تحویل
-- یوزرایجنت برنامه دقیقاً **Mytell** است تا در فایروال مای‌تل با همین نام مجوز بگیرد
-- **همیشه در دسترس**: با مجوز معافیت از بهینه‌سازی باتری و سرویس همیشگی، ثبت‌نام در پس‌زمینه حفظ می‌شود
-- **تماس روی صفحهٔ قفل**: تماس ورودی صفحه را روشن می‌کند و بدون وارد کردن رمز پاسخ داده می‌شود — مثل تماس سیم‌کارت
-- طراحی، لوگو و نشان برنامه مطابق سایت [mytel.one](https://mytel.one)
+برای تماس بیرونی باید مسیر خروجی و ترانک سرور تنظیم باشد. چت و تماس تصویری هم به پشتیبانی و تنظیم سرور و دستگاه مقابل نیاز دارند. جزئیات تست و محدودیت‌های همین نسخه در [گزارش بررسی](docs/releases/v3.0.0/VERIFICATION.md) آمده است.
 
-## Download
+## Build Android
 
-> **v2.1.0 is an unpublished candidate** — assets are prepared and verified,
-> the GitHub release is created by the repository owner.
+Use JDK 21 and Android SDK platform 37. Dependencies and the Linphone SDK version are pinned in `gradle/libs.versions.toml`.
 
-Once published, grab it from the [Releases](../../releases) page:
-
-- `MytellPhone-v2.1.0.apk` — Android 9+ (arm64 / armeabi-v7a)
-- `MytellPhone-v2.1.0-win64.zip` — Windows 10/11 x64 portable (unzip & run `mytellphone.exe`)
-
-Checksums are published alongside the release assets.
-
-## Features
-
-- SIP account login (extension / password) — works with any standard SIP PBX/SBC,
-  including `sbc.mytel.one`
-- Transports: SIP over **TLS, TCP and UDP** with per-account selection
-- 1-to-1 chat (SIP SIMPLE) with delivery state and persisted history
-- Auto-detection of server transport/port with real SIP verification
-- Audio codecs: Opus, G.722, G.711 (µ/a), SILK, AMR-WB…
-- Video codecs: H.264, H.265, VP8, AV1 (device permitting)
-- Multi-call, blind & attended transfer, conference, call waiting
-- Contacts integration, favorites, call history, voicemail (MWI)
-- Android Telecom self-managed calling, call-style notifications
-- Light/dark theme following the MyTel brand colors
-
-## Push notifications (optional)
-
-Incoming-call push wakeup requires Firebase Cloud Messaging. To enable it, place
-your own `google-services.json` in `app/` and rebuild. Without it, the app keeps a
-persistent foreground registration (classic always-on SIP mode) — this is the
-shipping default of v2.1.0.
-
-> **Note — IAX2**: this build speaks **SIP only** (UDP/TCP/TLS). The underlying Linphone
-> engine has no IAX2 stack; adding one would mean an unmaintained third-party engine.
-> Works with any standard SIP PBX (Issabel, FreePBX, Asterisk, Kamailio…);
-> chat delivery additionally requires the PBX to route SIP MESSAGE (server-side).
-
-## Building from source
-
-Requirements: JDK 21, Android SDK (platform 37). The Linphone SDK is fetched
-automatically from the official Belledonne maven repository (version pinned in
-`gradle/libs.versions.toml`).
-
-```bash
-# one-time: create your signing config
-cp keystore.properties.example keystore.properties   # then fill values + keystore
-
-# build
-./gradlew assembleRelease
-# APK: app/build/outputs/apk/release/MytellPhone-release-v2.1.0.apk
+```sh
+./gradlew testDebugUnitTest lintDebug assembleDebug
 ```
 
-The release keystore is **not** committed. Keep `app/mytelsoftphone.keystore` and
-`keystore.properties` safe — updates must be signed with the same key.
+For a production APK, configure the existing private signing key using `keystore.properties.example`, then run:
 
-## Engineering notes (v2.1.0)
+```sh
+./gradlew assembleRelease
+```
 
-- Engine: linphone-sdk-android **5.6.0-alpha.190+026b4e9992** (pinned for reproducible builds).
-- English-only UI: locale pinned in the shared activity lifecycle
-  (`ui/GenericActivity.kt`) + `AppLocalesMetadataHolderService` storage
-  (`AndroidManifest.xml`); verified on fa/fr/de system locales, below and above API 33.
-- Chat defaults for third-party SIP accounts: factory/LIME entries removed from
-  `assets/assistant_linphone_default_values` + CPIM disabled — basic SIP SIMPLE rooms.
-- Scoped migration for affected v2.0.0 accounts: `core/CoreContext.kt`
-  (`migrateLinphoneOrgChatDefaults`), clone-params pattern.
-- Auto-detect probe implementation: `app/src/main/java/org/linphone/utils/SipTransportScanner.kt`
-- Keep-alive default on: `core/CorePreferences.kt` (`keep_service_alive = true`).
-- Registration expires after 600 s; third-party call-quality reporting disabled.
-- Brand assets (splash ring emblem, launcher set): generated from the mytel.one
-  banner emblem; adaptive + legacy + monochrome launcher variants in `res/mipmap-*`.
+Output: `app/build/outputs/apk/release/MytellPhone-release-v3.0.0.apk`. A missing production signing configuration fails release packaging; it does not silently use a debug key. Never commit signing keys or credentials.
 
-## Licensing & credits
+## Source and licenses
 
-This project is a fork of [linphone-android](https://github.com/BelledonneCommunications/linphone-android)
-by [Belledonne Communications](https://www.belledonne-communications.com),
-licensed under the **GNU GPL v3** (see [LICENSE.txt](LICENSE.txt) and
-[NOTICE.md](NOTICE.md)). The MyTel name and logo belong to mytel.one and are used
-here for the MyTel product family.
+Android source is in this repository. The v3 release also supplies the matching Windows application source and the available local Linphone SDK source snapshot, including its build patch, Qt renderer source and manifest. The SDK manifest lists unavailable external source pins; prebuilt dependency correspondence has not been independently established, and a complete offline SDK rebuild is not established. See [Windows build instructions](release/windows/README.md) for the workstation build layout and validation limits.
+
+Application code is derived from [linphone-android](https://github.com/BelledonneCommunications/linphone-android) and [linphone-desktop](https://github.com/BelledonneCommunications/linphone-desktop), by Belledonne Communications, under GNU GPL v3 or later. SDK components retain their own GPL/AGPL and third-party notices. See [LICENSE.txt](LICENSE.txt), [NOTICE.md](NOTICE.md) and the notices supplied with release assets. MyTel names and logos belong to their owner.
