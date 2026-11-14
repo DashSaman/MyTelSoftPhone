@@ -1,6 +1,8 @@
 param(
     [Parameter(Mandatory=$true)][string]$BaseDirectory,
     [Parameter(Mandatory=$true)][string]$StageDirectory,
+    [Parameter(Mandatory=$true)][string]$CrtDirectory,
+    [Parameter(Mandatory=$true)][ValidatePattern('^[0-9a-fA-F]{40}$')][string]$SourceCommit,
     [string]$QtDirectory = 'C:\Qt\6.10.0\msvc2022_64'
 )
 $ErrorActionPreference = 'Stop'
@@ -10,6 +12,11 @@ if (Test-Path -LiteralPath $stage) { throw 'Use a new stage directory; existing 
 $executable = Join-Path $base 'win\build\bin\mytellphone.exe'
 $sdk = Join-Path $base 'win\sdk\linphone-sdk\win64'
 $source = Join-Path $base 'linphone-desktop'
+$crt = (Resolve-Path -LiteralPath $CrtDirectory).Path
+if ((Split-Path $crt -Leaf) -ne 'Microsoft.VC143.CRT' -or
+    (Split-Path (Split-Path $crt -Parent) -Leaf) -ne 'x64' -or $crt -match '(?i)onecore') {
+    throw 'Select the standard x64 Microsoft.VC143.CRT redistributable directory.'
+}
 $deployer = Join-Path $QtDirectory 'bin\windeployqt.exe'
 foreach ($required in @($executable, $sdk, $source, $deployer,
     (Join-Path $sdk 'lib\mediastreamer\plugins\libmsqogl.dll'),
@@ -18,6 +25,8 @@ foreach ($required in @($executable, $sdk, $source, $deployer,
 }
 New-Item -ItemType Directory -Path $stage | Out-Null
 Copy-Item -LiteralPath $executable -Destination $stage
+Set-Content -LiteralPath (Join-Path $stage 'SOURCE-COMMIT.txt') -Value $SourceCommit.ToLowerInvariant() -Encoding ascii
+Get-ChildItem -LiteralPath $crt -Filter '*.dll' -File | Copy-Item -Destination $stage
 $env:PATH = (Join-Path $QtDirectory 'bin') + ';' + $env:PATH
 & $deployer --release --qmldir (Join-Path $source 'Linphone\view') (Join-Path $stage 'mytellphone.exe')
 if ($LASTEXITCODE -ne 0) { throw 'Qt runtime deployment failed' }
@@ -27,7 +36,11 @@ foreach ($relative in @('lib\mediastreamer\plugins','lib\linphone\plugins','shar
     if (Test-Path -LiteralPath $from) {
         $destination = Join-Path $stage $relative
         New-Item -ItemType Directory -Path $destination -Force | Out-Null
-        Get-ChildItem -LiteralPath $from -Force | Copy-Item -Destination $destination -Recurse
+        if ($relative.StartsWith('lib\')) {
+            Get-ChildItem -LiteralPath $from -Filter '*.dll' -File | Copy-Item -Destination $destination
+        } else {
+            Get-ChildItem -LiteralPath $from -Force | Copy-Item -Destination $destination -Recurse
+        }
     }
 }
 $factoryDirectory = Join-Path $stage 'share\mytellphone'
@@ -46,7 +59,7 @@ $noticeDirectory = $PSScriptRoot
 if (-not (Test-Path -LiteralPath (Join-Path $noticeDirectory 'THIRD-PARTY-NOTICES.md'))) {
     $noticeDirectory = Join-Path $base 'linphone-android\release\windows'
 }
-foreach ($notice in @('THIRD-PARTY-NOTICES.md', 'LICENSE-LGPL-3.0.txt')) {
+foreach ($notice in @('THIRD-PARTY-NOTICES.md', 'LICENSE-LGPL-3.0.txt', 'MICROSOFT-VC-RUNTIME-NOTICE.txt')) {
     Copy-Item -LiteralPath (Join-Path $noticeDirectory $notice) -Destination $stage
 }
 $qtSbom = Join-Path $QtDirectory 'sbom'

@@ -1,0 +1,16 @@
+Microsoft Visual C++ runtime notice
+
+This MyTel package contains the x64 Microsoft.VC143.CRT redistributable runtime DLLs from the existing Visual Studio 2022 MSVC 14.44 distribution. These files are Microsoft components, retain Microsoft copyright, and are not relicensed under the MyTel application GPL license.
+
+Microsoft software license terms apply. This notice is a reference to those terms, not a replacement license or an assertion about the publisher's Visual Studio entitlement.
+
+License terms directory:
+https://visualstudio.microsoft.com/license-terms/
+
+Visual Studio 2022 distributable code list:
+https://learn.microsoft.com/en-us/visualstudio/releases/2022/redistribution
+
+Runtime deployment documentation:
+https://learn.microsoft.com/en-us/cpp/windows/redistributing-visual-cpp-files
+
+The official Microsoft vc_redist.x64.exe is also included. The MyTel per-user installer does not run that machine-wide installer automatically. The app-local runtime is updated when the MyTel application package is updated.

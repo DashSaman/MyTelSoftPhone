@@ -10,6 +10,18 @@ Group changes to describe their impact on the project, as follows:
     Fixed for any bug fixes.
     Security to invite users to upgrade in case of vulnerabilities.
 
+## MyTel [3.0.1] - 2026-11-15
+
+### Fixed
+- Android Telecom duplicate setup for repeated SIP progress callbacks, late outgoing activation and terminal session/listener cleanup.
+- Windows Transport popup background contrast in dark mode and live theme changes.
+- Windows title/tray/toast/PE icons and stale notification-image caching.
+
+### Changed
+- MyTel product/version metadata, per-user setup/uninstall, branded shortcuts and guarded installation ownership; account/profile files are preserved.
+- Android onboarding uses MyTel artwork and mytel.one product copy; legal notices remain.
+- Windows runtime includes standard x64 Microsoft C++ redistributable DLLs and the vendor terms/reference notice.
+
 ## MytellPhone [3.0.0] - 2026-11-14
 
 ### Fixed
