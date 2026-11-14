@@ -47,6 +47,7 @@ import org.linphone.utils.AppUtils
 import org.linphone.utils.Event
 import org.linphone.utils.FileUtils
 import org.linphone.utils.LinphoneUtils
+import org.linphone.utils.MyTelRegistrationAlerts
 
 class MainViewModel
     @UiThread
@@ -228,62 +229,21 @@ class MainViewModel
         ) {
             if (!monitorAccount) return
 
+            // Removed login attempts may emit a final Failed/Cleared event
+            // after onAccountRemoved. Only current accounts can raise alerts.
+            if (core.accountList.none { it == account }) {
+                refreshRegistrationAlerts(core)
+                return
+            }
             when (state) {
-                RegistrationState.Failed -> {
-                    if (account == core.defaultAccount) {
-                        Log.e("$TAG Default account registration failed!")
-                        val label = AppUtils.getString(
-                            R.string.connection_error_for_non_default_account
-                        )
-                        addAlert(DEFAULT_ACCOUNT_DISABLED, label)
-                    } else if (core.isNetworkReachable) {
-                        Log.e("$TAG Non-default account registration failed!")
-                        val label = AppUtils.getString(
-                            R.string.connection_error_for_non_default_account
-                        )
-                        addAlert(NON_DEFAULT_ACCOUNT_NOT_CONNECTED, label)
-                    }
-                    checkAccessLocalNetworkPermission()
-                }
+                RegistrationState.Failed -> checkAccessLocalNetworkPermission()
                 RegistrationState.Ok -> {
-                    removeAlert(NETWORK_NOT_REACHABLE) // Just in case
-
-                    if (!firstAccountRegistered) {
-                        triggerNativeAddressBookImport()
-                    }
-
-                    if (account == core.defaultAccount) {
-                        Log.i("$TAG Default account is now registered")
-                        removeAlert(DEFAULT_ACCOUNT_DISABLED)
-                    } else {
-                        // If no call and no account is in Failed state, hide top bar
-                        val found = core.accountList.find {
-                            it.state == RegistrationState.Failed
-                        }
-                        if (found == null) {
-                            removeAlert(NON_DEFAULT_ACCOUNT_NOT_CONNECTED)
-                        }
-                    }
-                }
-                RegistrationState.Progress, RegistrationState.Refreshing -> {
-                    if (account == core.defaultAccount) {
-                        Log.i(
-                            "$TAG Default account is registering, removing registration failed alert for now"
-                        )
-                        removeAlert(DEFAULT_ACCOUNT_DISABLED)
-                    }
-                }
-                RegistrationState.Cleared -> {
-                    if (account == core.defaultAccount) {
-                        Log.w("$TAG Default account is now disabled")
-                        val label = AppUtils.getString(
-                            R.string.default_account_disabled
-                        )
-                        addAlert(DEFAULT_ACCOUNT_DISABLED, label)
-                    }
+                    removeAlert(NETWORK_NOT_REACHABLE)
+                    if (!firstAccountRegistered) triggerNativeAddressBookImport()
                 }
                 else -> {}
             }
+            refreshRegistrationAlerts(core)
         }
 
         @WorkerThread
@@ -330,10 +290,7 @@ class MainViewModel
             Log.w(
                 "$TAG Account [${account.params.identityAddress?.asStringUriOnly()}] has been removed!"
             )
-            removeAlert(DEFAULT_ACCOUNT_DISABLED)
-            removeAlert(NON_DEFAULT_ACCOUNT_NOT_CONNECTED)
-            // Refresh REGISTER to re-compute alerts regarding accounts registration state
-            core.refreshRegisters()
+            refreshRegistrationAlerts(core, excludedAccount = account)
 
             computeNonDefaultAccountNotificationsCount()
 
@@ -691,6 +648,29 @@ class MainViewModel
     }
 
     @WorkerThread
+    private fun refreshRegistrationAlerts(core: Core, excludedAccount: Account? = null) {
+        val snapshots = core.accountList.filter { it != excludedAccount }.map {
+            MyTelRegistrationAlerts.Account(
+                isDefault = it == core.defaultAccount,
+                enabled = it.params.isRegisterEnabled,
+                failed = it.state == RegistrationState.Failed,
+                cleared = it.state == RegistrationState.Cleared
+            )
+        }
+        val alerts = MyTelRegistrationAlerts.resolve(core.isNetworkReachable, snapshots)
+        when {
+            alerts.defaultDisabled -> addAlert(DEFAULT_ACCOUNT_DISABLED, AppUtils.getString(R.string.default_account_disabled))
+            alerts.defaultFailed -> addAlert(DEFAULT_ACCOUNT_DISABLED, AppUtils.getString(R.string.connection_error_for_non_default_account))
+            else -> removeAlert(DEFAULT_ACCOUNT_DISABLED)
+        }
+        if (alerts.otherFailed) {
+            addAlert(NON_DEFAULT_ACCOUNT_NOT_CONNECTED, AppUtils.getString(R.string.connection_error_for_non_default_account))
+        } else {
+            removeAlert(NON_DEFAULT_ACCOUNT_NOT_CONNECTED)
+        }
+    }
+
+    @WorkerThread
     private fun checkNetworkReachability() {
         val reachable = coreContext.core.isNetworkReachable
         Log.i("$TAG Network is ${if (reachable) "reachable" else "not reachable"}")
@@ -708,6 +688,7 @@ class MainViewModel
         } else {
             removeAlert(NETWORK_NOT_REACHABLE)
         }
+        if (monitorAccount) refreshRegistrationAlerts(coreContext.core)
     }
 
     @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
