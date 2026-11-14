@@ -39,15 +39,15 @@ object MyTelNumberNormalizer {
         val trimmed = raw.trim()
         if (trimmed.isEmpty()) return raw
         if (trimmed.startsWith("sip:", ignoreCase = true) ||
-            trimmed.contains("@") ||
-            trimmed.startsWith("*") ||
-            trimmed.startsWith("#")
+            trimmed.startsWith("sips:", ignoreCase = true) ||
+            trimmed.contains("@")
         ) {
             return raw
         }
 
         val ascii = StringBuilder()
-        for (ch in trimmed) {
+        val telephone = if (trimmed.startsWith("tel:", ignoreCase = true)) trimmed.substring(4) else trimmed
+        for (ch in telephone) {
             ascii.append(
                 when (ch) {
                     in '۰'..'۹' -> ('0' + (ch - '۰'))
@@ -57,11 +57,15 @@ object MyTelNumberNormalizer {
             )
         }
 
-        val cleaned = ascii.toString().filter { it !in " \u00A0\t-()./" }
+        val cleaned = ascii.toString().filter {
+            !it.isWhitespace() && it != '\u00A0' && it !in "-()./\u200E\u200F\u202A\u202B\u202C\u202D\u202E\u2066\u2067\u2068\u2069"
+        }
         if (cleaned.isEmpty()) return raw
+        if (cleaned.startsWith("*") || cleaned.startsWith("#")) return cleaned
 
         val prefix = prefixes.firstOrNull { cleaned.startsWith(it) } ?: return cleaned
         val remainder = cleaned.substring(prefix.length)
+        if (!remainder.all { it in '0'..'9' }) return cleaned
 
         return when {
             remainder.length == 10 -> "0$remainder"
