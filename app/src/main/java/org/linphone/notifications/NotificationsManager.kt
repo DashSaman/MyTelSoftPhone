@@ -73,6 +73,7 @@ import org.linphone.core.Friend
 import org.linphone.core.MediaDirection
 import org.linphone.core.RegistrationState
 import org.linphone.core.tools.Log
+import org.linphone.utils.MyTelAccountErrorNotifications
 import org.linphone.ui.main.MainActivity
 import org.linphone.ui.main.MainActivity.Companion.ARGUMENTS_CHAT
 import org.linphone.ui.main.MainActivity.Companion.ARGUMENTS_CONVERSATION_ID
@@ -471,18 +472,20 @@ class NotificationsManager
             state: RegistrationState?,
             message: String
         ) {
-            if (state == RegistrationState.Failed) {
-                showAccountErrorNotification(account)
-            } else if (state == RegistrationState.Ok) {
-                // Check if a notification exists for that identity address and if yes, remove it
-                val identity = account.params.identityAddress?.asStringUriOnly().orEmpty()
-                val notificationId = accountsErrorNotificationsMap.getOrDefault(identity, -1)
-                if (notificationId != -1) {
-                    accountsErrorNotificationsMap.remove(identity)
-                    Log.i("$TAG Removing account registration error notification with ID [$notificationId] for [$identity]")
-                    cancelNotification(notificationId, ACCOUNT_ERROR_TAG)
-                }
+            // SDK failures may arrive after a cancelled sign-in removed its
+            // temporary account. Never publish an error for that stale object.
+            if (core.accountList.none { it == account }) {
+                reconcileAccountErrorNotifications(core)
+                return
             }
+            reconcileAccountErrorNotifications(core)
+        }
+
+        @WorkerThread
+        override fun onAccountRemoved(core: Core, account: Account) {
+            // Exclude it explicitly: the removal callback can precede the
+            // account-list update in different SDK versions.
+            reconcileAccountErrorNotifications(core, removedAccount = account)
         }
 
         @WorkerThread
@@ -659,6 +662,10 @@ class NotificationsManager
         }
 
         core.addListener(coreListener)
+
+        // Restored OS notifications survive process death, unlike our map.
+        // Reconcile them against configured accounts even when the map is empty.
+        reconcileAccountErrorNotifications(core, publishMissing = false)
 
         coreContext.contactsManager.addListener(contactsListener)
 
@@ -1232,6 +1239,49 @@ class NotificationsManager
             "$TAG Updating chat notification with ID [${notifiable.notificationId}]"
         )
         notify(notifiable.notificationId, notification, CHAT_TAG)
+    }
+
+    @WorkerThread
+    private fun reconcileAccountErrorNotifications(
+        core: Core,
+        removedAccount: Account? = null,
+        publishMissing: Boolean = true
+    ) {
+        val accounts = core.accountList.filter { it != removedAccount }
+        val snapshots = accounts.map { account ->
+            val params = account.params
+            MyTelAccountErrorNotifications.Account(
+                params.identityAddress?.asStringUriOnly().orEmpty(),
+                params.isRegisterEnabled,
+                account.state == RegistrationState.Failed,
+                params.isPushNotificationAvailable
+            )
+        }
+        val retained = MyTelAccountErrorNotifications.failedIdentities(
+            snapshots,
+            corePreferences.keepServiceAlive
+        )
+        val activeIds = notificationManager.activeNotifications
+            .filter { it.tag == ACCOUNT_ERROR_TAG }
+            .map { it.id }
+            .toSet()
+        val knownIds = accountsErrorNotificationsMap.values.toSet() + activeIds
+        for (id in MyTelAccountErrorNotifications.staleIds(knownIds, retained)) {
+            cancelNotification(id, ACCOUNT_ERROR_TAG)
+        }
+        accountsErrorNotificationsMap.keys.retainAll(retained)
+        for (identity in retained) {
+            val id = identity.hashCode()
+            if (id in activeIds) accountsErrorNotificationsMap[identity] = id
+        }
+        if (publishMissing) {
+            for (account in accounts) {
+                val identity = account.params.identityAddress?.asStringUriOnly().orEmpty()
+                if (identity in retained && !accountsErrorNotificationsMap.containsKey(identity)) {
+                    showAccountErrorNotification(account)
+                }
+            }
+        }
     }
 
     @WorkerThread
